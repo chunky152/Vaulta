@@ -1,0 +1,399 @@
+// AirVault Database Schema
+// PostgreSQL with PostGIS for geospatial queries
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis, uuid_ossp(map: "uuid-ossp")]
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UnitSize {
+  SMALL      // Small locker: ideal for bags, laptops
+  MEDIUM     // Medium locker: suitcases, boxes
+  LARGE      // Large unit: multiple items
+  XL         // Extra large: furniture, bulk storage
+}
+
+enum UnitStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+  RESERVED
+}
+
+enum BookingStatus {
+  PENDING     // Created but not paid
+  CONFIRMED   // Paid and confirmed
+  ACTIVE      // Currently in use
+  COMPLETED   // Successfully ended
+  CANCELLED   // Cancelled by user or system
+  EXPIRED     // Expired without check-in
+}
+
+enum TransactionType {
+  PAYMENT
+  REFUND
+  DEPOSIT
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum NotificationType {
+  EMAIL
+  SMS
+  PUSH
+}
+
+enum NotificationCategory {
+  BOOKING
+  PAYMENT
+  REMINDER
+  PROMO
+  SYSTEM
+}
+
+enum LoyaltyTransactionType {
+  EARNED
+  REDEEMED
+  EXPIRED
+  BONUS
+}
+
+enum LoyaltySource {
+  BOOKING
+  REFERRAL
+  PROMO
+  REVIEW
+  SIGNUP
+}
+
+enum ItemCondition {
+  EXCELLENT
+  GOOD
+  FAIR
+  DAMAGED
+}
+
+// ============================================
+// MODELS
+// ============================================
+
+model User {
+  id                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email             String    @unique @db.VarChar(255)
+  passwordHash      String    @map("password_hash") @db.VarChar(255)
+  firstName         String?   @map("first_name") @db.VarChar(100)
+  lastName          String?   @map("last_name") @db.VarChar(100)
+  phone             String?   @db.VarChar(20)
+  role              UserRole  @default(CUSTOMER)
+  emailVerified     Boolean   @default(false) @map("email_verified")
+  phoneVerified     Boolean   @default(false) @map("phone_verified")
+  profileImageUrl   String?   @map("profile_image_url") @db.VarChar(500)
+  referralCode      String    @unique @map("referral_code") @db.VarChar(20)
+  referredById      String?   @map("referred_by_id") @db.Uuid
+  loyaltyPoints     Int       @default(0) @map("loyalty_points")
+  isActive          Boolean   @default(true) @map("is_active")
+  lastLoginAt       DateTime? @map("last_login_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  referredBy          User?                 @relation("UserReferrals", fields: [referredById], references: [id])
+  referrals           User[]                @relation("UserReferrals")
+  bookings            Booking[]
+  transactions        Transaction[]
+  notifications       Notification[]
+  reviews             Review[]
+  loyaltyTransactions LoyaltyTransaction[]
+  refreshTokens       RefreshToken[]
+  inventoryItems      InventoryItem[]
+
+  @@index([email])
+  @@index([referralCode])
+  @@index([role])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  token     String   @unique @db.VarChar(500)
+  userId    String   @map("user_id") @db.Uuid
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+model StorageLocation {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name           String   @db.VarChar(200)
+  slug           String   @unique @db.VarChar(200)
+  description    String?  @db.Text
+  address        String   @db.VarChar(500)
+  city           String   @db.VarChar(100)
+  state          String?  @db.VarChar(100)
+  country        String   @db.VarChar(100)
+  postalCode     String?  @map("postal_code") @db.VarChar(20)
+  latitude       Float
+  longitude      Float
+  operatingHours Json     @default("{}") @map("operating_hours")
+  contactPhone   String?  @map("contact_phone") @db.VarChar(20)
+  contactEmail   String?  @map("contact_email") @db.VarChar(255)
+  images         Json     @default("[]")
+  amenities      Json     @default("[]")
+  isActive       Boolean  @default(true) @map("is_active")
+  isFeatured     Boolean  @default(false) @map("is_featured")
+  rating         Float    @default(0)
+  reviewCount    Int      @default(0) @map("review_count")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  units   StorageUnit[]
+  reviews Review[]
+
+  @@index([city])
+  @@index([isActive])
+  @@index([latitude, longitude])
+  @@map("storage_locations")
+}
+
+model StorageUnit {
+  id              String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  locationId      String     @map("location_id") @db.Uuid
+  unitNumber      String     @map("unit_number") @db.VarChar(50)
+  name            String?    @db.VarChar(100)
+  size            UnitSize
+  dimensions      Json       @default("{}")  // { width, height, depth in cm }
+  basePriceHourly Float      @map("base_price_hourly")
+  basePriceDaily  Float      @map("base_price_daily")
+  basePriceMonthly Float?    @map("base_price_monthly")
+  currency        String     @default("USD") @db.VarChar(3)
+  status          UnitStatus @default(AVAILABLE)
+  features        Json       @default("[]")  // climate_controlled, secure, accessible, etc.
+  qrCode          String?    @unique @map("qr_code") @db.VarChar(500)
+  floor           Int?
+  isActive        Boolean    @default(true) @map("is_active")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  location StorageLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+
+  @@unique([locationId, unitNumber])
+  @@index([locationId])
+  @@index([status])
+  @@index([size])
+  @@map("storage_units")
+}
+
+model Booking {
+  id            String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  bookingNumber String        @unique @map("booking_number") @db.VarChar(20)
+  userId        String        @map("user_id") @db.Uuid
+  unitId        String        @map("unit_id") @db.Uuid
+  status        BookingStatus @default(PENDING)
+  startTime     DateTime      @map("start_time")
+  endTime       DateTime      @map("end_time")
+  checkInTime   DateTime?     @map("check_in_time")
+  checkOutTime  DateTime?     @map("check_out_time")
+  totalPrice    Float         @map("total_price")
+  currency      String        @default("USD") @db.VarChar(3)
+  accessCode    String?       @map("access_code") @db.VarChar(10)
+  notes         String?       @db.Text
+  cancellationReason String?  @map("cancellation_reason") @db.Text
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  user           User            @relation(fields: [userId], references: [id])
+  unit           StorageUnit     @relation(fields: [unitId], references: [id])
+  transactions   Transaction[]
+  review         Review?
+  inventoryItems InventoryItem[]
+
+  @@index([userId])
+  @@index([unitId])
+  @@index([status])
+  @@index([bookingNumber])
+  @@index([startTime, endTime])
+  @@map("bookings")
+}
+
+model Transaction {
+  id                    String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  bookingId             String?           @map("booking_id") @db.Uuid
+  userId                String            @map("user_id") @db.Uuid
+  amount                Float
+  currency              String            @default("USD") @db.VarChar(3)
+  type                  TransactionType
+  status                TransactionStatus @default(PENDING)
+  stripePaymentIntentId String?           @map("stripe_payment_intent_id") @db.VarChar(255)
+  stripeChargeId        String?           @map("stripe_charge_id") @db.VarChar(255)
+  stripeRefundId        String?           @map("stripe_refund_id") @db.VarChar(255)
+  metadata              Json              @default("{}")
+  failureReason         String?           @map("failure_reason") @db.Text
+  createdAt             DateTime          @default(now()) @map("created_at")
+  updatedAt             DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  booking Booking? @relation(fields: [bookingId], references: [id])
+  user    User     @relation(fields: [userId], references: [id])
+
+  @@index([bookingId])
+  @@index([userId])
+  @@index([stripePaymentIntentId])
+  @@index([status])
+  @@map("transactions")
+}
+
+model Notification {
+  id        String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String               @map("user_id") @db.Uuid
+  type      NotificationType
+  category  NotificationCategory
+  title     String               @db.VarChar(200)
+  message   String               @db.Text
+  data      Json                 @default("{}")
+  sentAt    DateTime?            @map("sent_at")
+  readAt    DateTime?            @map("read_at")
+  createdAt DateTime             @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([category])
+  @@index([readAt])
+  @@map("notifications")
+}
+
+model Review {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  locationId String   @map("location_id") @db.Uuid
+  bookingId  String   @unique @map("booking_id") @db.Uuid
+  rating     Int      // 1-5
+  title      String?  @db.VarChar(200)
+  comment    String?  @db.Text
+  isPublic   Boolean  @default(true) @map("is_public")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user     User            @relation(fields: [userId], references: [id])
+  location StorageLocation @relation(fields: [locationId], references: [id])
+  booking  Booking         @relation(fields: [bookingId], references: [id])
+
+  @@index([userId])
+  @@index([locationId])
+  @@index([rating])
+  @@map("reviews")
+}
+
+model LoyaltyTransaction {
+  id          String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId      String                 @map("user_id") @db.Uuid
+  points      Int
+  type        LoyaltyTransactionType
+  source      LoyaltySource
+  referenceId String?                @map("reference_id") @db.Uuid
+  description String?                @db.VarChar(255)
+  createdAt   DateTime               @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@map("loyalty_transactions")
+}
+
+model NotificationPreference {
+  id             String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId         String  @unique @map("user_id") @db.Uuid
+  emailBooking   Boolean @default(true) @map("email_booking")
+  emailPayment   Boolean @default(true) @map("email_payment")
+  emailReminder  Boolean @default(true) @map("email_reminder")
+  emailPromo     Boolean @default(true) @map("email_promo")
+  smsBooking     Boolean @default(true) @map("sms_booking")
+  smsPayment     Boolean @default(false) @map("sms_payment")
+  smsReminder    Boolean @default(true) @map("sms_reminder")
+  smsPromo       Boolean @default(false) @map("sms_promo")
+  pushBooking    Boolean @default(true) @map("push_booking")
+  pushPayment    Boolean @default(true) @map("push_payment")
+  pushReminder   Boolean @default(true) @map("push_reminder")
+  pushPromo      Boolean @default(true) @map("push_promo")
+
+  @@map("notification_preferences")
+}
+
+// Pricing rules for dynamic pricing
+model PricingRule {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String   @db.VarChar(100)
+  description String?  @db.Text
+  ruleType    String   @db.VarChar(50) // demand, time, location, size
+  conditions  Json     @default("{}")
+  multiplier  Float    @default(1.0)
+  isActive    Boolean  @default(true) @map("is_active")
+  priority    Int      @default(0)
+  startDate   DateTime? @map("start_date")
+  endDate     DateTime? @map("end_date")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([ruleType])
+  @@index([isActive])
+  @@map("pricing_rules")
+}
+
+model InventoryItem {
+  id             String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  bookingId      String        @map("booking_id") @db.Uuid
+  userId         String        @map("user_id") @db.Uuid
+  name           String        @db.VarChar(255)
+  description    String?       @db.Text
+  category       String        @db.VarChar(100)
+  quantity       Int           @default(1)
+  condition      ItemCondition @default(GOOD)
+  estimatedValue Float?        @map("estimated_value")
+  photos         Json          @default("[]")
+  notes          String?       @db.Text
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([userId])
+  @@index([category])
+  @@map("inventory_items")
+}

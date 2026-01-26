@@ -1,0 +1,42 @@
+{
+  "name": "vaulta",
+  "version": "1.0.0",
+  "description": "Location-based storage service platform - Find, book, and manage temporary storage units near you",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=@vaulta/backend & npm run dev --workspace=@vaulta/web",
+    "dev:backend": "npm run dev --workspace=@vaulta/backend",
+    "dev:web": "npm run dev --workspace=@vaulta/web",
+    "build": "npm run build --workspaces",
+    "build:backend": "npm run build --workspace=@vaulta/backend",
+    "build:web": "npm run build --workspace=@vaulta/web",
+    "start": "npm run start --workspace=@vaulta/backend",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "db:generate": "npm run db:generate --workspace=@vaulta/backend",
+    "db:migrate": "npm run db:migrate --workspace=@vaulta/backend",
+    "db:push": "npm run db:push --workspace=@vaulta/backend",
+    "db:seed": "npm run db:seed --workspace=@vaulta/backend",
+    "db:studio": "npm run db:studio --workspace=@vaulta/backend",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist"
+  },
+  "keywords": [
+    "storage",
+    "booking",
+    "geolocation",
+    "locker",
+    "vault"
+  ],
+  "author": "Vaulta Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}
