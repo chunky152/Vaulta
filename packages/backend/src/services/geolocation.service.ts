@@ -2,9 +2,7 @@ import { StorageLocation } from '../models/StorageLocation.js';
 import { StorageUnit } from '../models/StorageUnit.js';
 import mongoose from 'mongoose';
 import { LocationWithDistance } from '../types/index.js';
-import { cache } from '../config/redis.js';
 
-const CACHE_TTL = 300; // 5 minutes
 
 interface NearbySearchOptions {
   latitude: number;
@@ -28,14 +26,7 @@ export class GeolocationService {
     const { latitude, longitude, radiusKm, page, limit, includeInactive = false } = options;
     const offset = (page - 1) * limit;
 
-    // Try cache first
-    const cacheKey = `nearby:${latitude.toFixed(4)}:${longitude.toFixed(4)}:${radiusKm}:${page}:${limit}`;
-    const cached = await cache.get<{ locations: LocationWithDistance[]; total: number }>(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
-    // Use MongoDB $geoNear aggregation pipeline
+  // Use MongoDB $geoNear aggregation pipeline
     const locations = await (StorageLocation.collection as any).aggregate([
       {
         $geoNear: {
@@ -112,9 +103,6 @@ export class GeolocationService {
       total,
     };
 
-    // Cache the result
-    await cache.set(cacheKey, result, CACHE_TTL);
-
     return result;
   }
 
@@ -190,21 +178,13 @@ export class GeolocationService {
   }
 
   // Get featured locations
-  async getFeaturedLocations(limit: number = 10): Promise<StorageLocation[]> {
-    const cacheKey = `featured_locations:${limit}`;
-    const cached = await cache.get<StorageLocation[]>(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
+  async getFeaturedLocations(limit: number = 10): Promise<any[]> {
     const locations = await StorageLocation.find({
       isActive: true,
       isFeatured: true,
     })
       .sort({ rating: -1 })
       .limit(limit);
-
-    await cache.set(cacheKey, locations, CACHE_TTL);
 
     return locations;
   }

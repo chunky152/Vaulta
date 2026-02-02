@@ -3,7 +3,7 @@ import { PricingRule as PricingRuleModel } from '../models/PricingRule.js';
 import mongoose from 'mongoose';
 import { BookingPriceCalculation, PriceAdjustment, NotFoundError } from '../types/index.js';
 import { calculateDuration, determinePricingType } from '../utils/helpers.js';
-import { cache } from '../config/redis.js';
+
 
 interface PricingRule {
   id: string;
@@ -186,14 +186,8 @@ export class PricingService {
     };
   }
 
-  // Get active pricing rules from database (cached)
+  // Get active pricing rules from database
   private async getActivePricingRules(): Promise<PricingRule[]> {
-    const cacheKey = 'pricing_rules:active';
-    const cached = await cache.get<PricingRule[]>(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
     const now = new Date();
     const rules = await PricingRuleModel.find({
       isActive: true,
@@ -214,7 +208,7 @@ export class PricingService {
       ],
     }).sort({ priority: -1 });
 
-    const transformedRules = rules.map((rule) => ({
+    return rules.map((rule) => ({
       id: rule._id.toString(),
       name: rule.name,
       ruleType: rule.ruleType,
@@ -222,10 +216,6 @@ export class PricingService {
       multiplier: rule.multiplier,
       priority: rule.priority,
     }));
-
-    await cache.set(cacheKey, transformedRules, 300); // Cache for 5 minutes
-
-    return transformedRules;
   }
 
   // Create a pricing rule

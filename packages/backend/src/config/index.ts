@@ -14,10 +14,6 @@ interface Config {
     url: string;
   };
 
-  redis: {
-    url: string;
-  };
-
   jwt: {
     secret: string;
     expiresIn: string;
@@ -82,10 +78,6 @@ export const config: Config = {
 
   database: {
     url: getEnvVar('DATABASE_URL'),
-  },
-
-  redis: {
-    url: getEnvVar('REDIS_URL', 'redis://localhost:6379'),
   },
 
   jwt: {

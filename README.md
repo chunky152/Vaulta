@@ -9,7 +9,6 @@ A modern full-stack platform for location-based storage unit discovery, booking,
 - **Framework**: Express.js
 - **Database**: MongoDB 6.0
 - **ORM**: Mongoose 7.6+
-- **Cache**: Redis
 - **Authentication**: JWT with refresh tokens
 
 ### Frontend
@@ -132,7 +131,6 @@ The API will be available at `http://localhost:3000` and the web app at `http://
 NODE_ENV=development
 PORT=3000
 DATABASE_URL=mongodb://localhost:27017/vaulta
-REDIS_URL=redis://localhost:6379
 JWT_SECRET=your-jwt-secret
 JWT_REFRESH_SECRET=your-refresh-secret
 STRIPE_SECRET_KEY=sk_test_...
