@@ -94,8 +94,8 @@ export const config: Config = {
 
   sendgrid: {
     apiKey: getEnvVar('SENDGRID_API_KEY', ''),
-    fromEmail: getEnvVar('SENDGRID_FROM_EMAIL', 'noreply@vaulta.com'),
-    fromName: getEnvVar('SENDGRID_FROM_NAME', 'Vaulta'),
+    fromEmail: getEnvVar('SENDGRID_FROM_EMAIL', 'noreply@unbur.com'),
+    fromName: getEnvVar('SENDGRID_FROM_NAME', 'Unbur'),
   },
 
   twilio: {

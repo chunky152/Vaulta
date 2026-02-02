@@ -1,5 +1,5 @@
 {
-  "name": "vaulta",
+  "name": "unbur",
   "version": "1.0.0",
   "description": "Location-based storage service platform - Find, book, and manage temporary storage units near you",
   "private": true,
@@ -7,16 +7,16 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=@vaulta/backend & npm run dev --workspace=@vaulta/web",
-    "dev:backend": "npm run dev --workspace=@vaulta/backend",
-    "dev:web": "npm run dev --workspace=@vaulta/web",
+    "dev": "npm run dev --workspace=@unbur/backend & npm run dev --workspace=@unbur/web",
+    "dev:backend": "npm run dev --workspace=@unbur/backend",
+    "dev:web": "npm run dev --workspace=@unbur/web",
     "build": "npm run build --workspaces",
-    "build:backend": "npm run build --workspace=@vaulta/backend",
-    "build:web": "npm run build --workspace=@vaulta/web",
-    "start": "npm run start --workspace=@vaulta/backend",
+    "build:backend": "npm run build --workspace=@unbur/backend",
+    "build:web": "npm run build --workspace=@unbur/web",
+    "start": "npm run start --workspace=@unbur/backend",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "db:seed": "npm run db:seed --workspace=@vaulta/backend",
+    "db:seed": "npm run db:seed --workspace=@unbur/backend",
     "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist"
   },
   "keywords": [
@@ -26,7 +26,7 @@
     "locker",
     "vault"
   ],
-  "author": "Vaulta Team",
+  "author": "Unbur Team",
   "license": "MIT",
   "engines": {
     "node": ">=20.0.0",

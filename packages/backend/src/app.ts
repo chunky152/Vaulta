@@ -54,7 +54,7 @@ export function createApp(): Express {
   // Root endpoint
   app.get('/', (_req, res) => {
     res.json({
-      name: 'Vaulta API',
+      name: 'Unbur API',
       version: '1.0.0',
       documentation: `/api/${config.apiVersion}/docs`,
       health: `/api/${config.apiVersion}/health`,

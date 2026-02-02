@@ -1,7 +1,7 @@
 {
-  "name": "@vaulta/backend",
+  "name": "@unbur/backend",
   "version": "1.0.0",
-  "description": "Vaulta Backend API Server",
+  "description": "Unbur Backend API Server",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",

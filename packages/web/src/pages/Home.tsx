@@ -4,31 +4,20 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { useLocationStore } from '@/stores/location.store';
 import { useGeolocation } from '@/hooks/useGeolocation';
-import { formatCurrency } from '@/lib/utils';
+import { LocationMap } from '@/components/map/LocationMap';
 import {
   MapPin,
   Search,
   Shield,
   Clock,
   Smartphone,
-  Star,
   ArrowRight,
-  Loader2,
 } from 'lucide-react';
 
 export function HomePage() {
   const navigate = useNavigate();
   const { position, isLoading: geoLoading } = useGeolocation();
-  const {
-    featuredLocations,
-    fetchFeaturedLocations,
-    setUserPosition,
-    isLoading,
-  } = useLocationStore();
-
-  useEffect(() => {
-    fetchFeaturedLocations();
-  }, [fetchFeaturedLocations]);
+  const { setUserPosition } = useLocationStore();
 
   useEffect(() => {
     if (position) {
@@ -81,7 +70,7 @@ export function HomePage() {
       <section className="py-20 bg-muted/30">
         <div className="container">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">Why Choose Vaulta?</h2>
+            <h2 className="text-3xl font-bold mb-4">Why Choose Unbur?</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               We make storage simple, secure, and accessible. Here's what sets us
               apart.
@@ -138,83 +127,34 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Featured Locations */}
+      {/* Map Section */}
       <section className="py-20">
         <div className="container">
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h2 className="text-3xl font-bold mb-2">Featured Locations</h2>
+              <h2 className="text-3xl font-bold mb-2">Explore the Map</h2>
               <p className="text-muted-foreground">
-                Discover our top-rated storage facilities
+                Browse the map to find storage near you
               </p>
             </div>
             <Link to="/search">
               <Button variant="outline">
-                View All
+                View List
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
           </div>
 
-          {isLoading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {featuredLocations.map((location) => (
-                <Link key={location.id} to={`/locations/${location.slug}`}>
-                  <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-                    <div className="aspect-video bg-muted relative">
-                      {location.images[0] ? (
-                        <img
-                          src={location.images[0]}
-                          alt={location.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-muted">
-                          <MapPin className="h-12 w-12 text-muted-foreground" />
-                        </div>
-                      )}
-                      {location.isFeatured && (
-                        <div className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded">
-                          Featured
-                        </div>
-                      )}
-                    </div>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="font-semibold">{location.name}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {location.city}, {location.country}
-                          </p>
-                        </div>
-                        <div className="flex items-center text-sm">
-                          <Star className="h-4 w-4 text-yellow-500 mr-1" />
-                          <span>{location.rating.toFixed(1)}</span>
-                          <span className="text-muted-foreground ml-1">
-                            ({location.reviewCount})
-                          </span>
-                        </div>
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {location.amenities.slice(0, 3).map((amenity) => (
-                          <span
-                            key={amenity}
-                            className="text-xs bg-muted px-2 py-1 rounded"
-                          >
-                            {amenity.replace(/_/g, ' ')}
-                          </span>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          )}
+          <div className="h-[60vh] rounded overflow-hidden">
+            <LocationMap
+              locations={[]}
+              userPosition={
+                position
+                  ? { latitude: position.latitude, longitude: position.longitude }
+                  : null
+              }
+            />
+          </div>
         </div>
       </section>
 
@@ -225,7 +165,7 @@ export function HomePage() {
             Ready to Store Your Belongings?
           </h2>
           <p className="text-primary-foreground/80 mb-8 max-w-2xl mx-auto">
-            Join thousands of satisfied customers who trust Vaulta for their
+            Join thousands of satisfied customers who trust Unbur for their
             storage needs.
           </p>
           <div className="flex justify-center">

@@ -19,8 +19,8 @@ if (config.sendgrid.apiKey) {
 // Initialize Twilio (only if valid credentials are provided)
 const twilioClient =
   config.twilio.accountSid &&
-  config.twilio.authToken &&
-  config.twilio.accountSid.startsWith('AC')
+    config.twilio.authToken &&
+    config.twilio.accountSid.startsWith('AC')
     ? twilio(config.twilio.accountSid, config.twilio.authToken)
     : null;
 
@@ -277,7 +277,7 @@ Access Code: ${(booking as any).accessCode}`;
     currency: string,
     bookingNumber: string
   ): Promise<void> {
-    const message = `Payment of ${currency} ${amount.toFixed(2)} received for booking ${bookingNumber}. Thank you for using Vaulta!`;
+    const message = `Payment of ${currency} ${amount.toFixed(2)} received for booking ${bookingNumber}. Thank you for using Unbur!`;
 
     await this.createNotification({
       userId,
@@ -385,7 +385,7 @@ Access Code: ${(booking as any).accessCode}`;
     }>
   ): Promise<void> {
     const existing = await NotificationPreference.findOne({ userId });
-    
+
     if (existing) {
       await NotificationPreference.updateOne(
         { userId },

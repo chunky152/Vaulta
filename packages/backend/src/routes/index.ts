@@ -14,7 +14,7 @@ const router = Router();
 router.get('/health', (_req, res) => {
   res.json({
     success: true,
-    message: 'Vaulta API is running',
+    message: 'Unbur API is running',
     timestamp: new Date().toISOString(),
   });
 });

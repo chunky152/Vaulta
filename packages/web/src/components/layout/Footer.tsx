@@ -154,18 +154,18 @@ export function Footer() {
             <div className="mt-4 space-y-2 text-sm text-muted-foreground">
               <p className="flex items-center gap-2">
                 <Mail className="h-4 w-4" />
-                support@vaulta.com
+                support@unbur.com
               </p>
               <p className="flex items-center gap-2">
                 <Phone className="h-4 w-4" />
-                1-800-VAULTA
+                1-800-UNBUR
               </p>
             </div>
           </div>
         </div>
 
         <div className="mt-12 pt-8 border-t text-center text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} Vaulta. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Unbur. All rights reserved.</p>
         </div>
       </div>
     </footer>
