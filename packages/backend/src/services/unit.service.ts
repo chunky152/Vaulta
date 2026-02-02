@@ -1,5 +1,7 @@
-import { prisma } from '../config/database.js';
-import { StorageUnit, UnitStatus, Prisma } from '@prisma/client';
+import { StorageUnit, UnitStatus } from '../models/StorageUnit.js';
+import { StorageLocation } from '../models/StorageLocation.js';
+import { Booking } from '../models/Booking.js';
+import mongoose from 'mongoose';
 import { NotFoundError, ConflictError } from '../types/index.js';
 import { generateUnitQRCode } from '../utils/qrcode.js';
 import {
@@ -10,24 +12,18 @@ import {
 
 export class UnitService {
   // Create a new storage unit
-  async createUnit(input: CreateUnitInput): Promise<StorageUnit> {
+  async createUnit(input: CreateUnitInput): Promise<any> {
     // Verify location exists
-    const location = await prisma.storageLocation.findUnique({
-      where: { id: input.locationId },
-    });
+    const location = await StorageLocation.findById(input.locationId);
 
     if (!location) {
       throw new NotFoundError('Storage location');
     }
 
     // Check if unit number already exists at this location
-    const existingUnit = await prisma.storageUnit.findUnique({
-      where: {
-        locationId_unitNumber: {
-          locationId: input.locationId,
-          unitNumber: input.unitNumber,
-        },
-      },
+    const existingUnit = await StorageUnit.findOne({
+      locationId: input.locationId,
+      unitNumber: input.unitNumber,
     });
 
     if (existingUnit) {
@@ -39,13 +35,11 @@ export class UnitService {
     // Generate QR code
     const qrCode = generateUnitQRCode(input.unitNumber, input.locationId);
 
-    const unit = await prisma.storageUnit.create({
-      data: {
-        ...input,
-        dimensions: input.dimensions ?? {},
-        features: input.features ?? [],
-        qrCode,
-      },
+    const unit = await StorageUnit.create({
+      ...input,
+      dimensions: input.dimensions ?? {},
+      features: input.features ?? [],
+      qrCode,
     });
 
     return unit;
@@ -55,11 +49,9 @@ export class UnitService {
   async createBulkUnits(
     locationId: string,
     units: Omit<CreateUnitInput, 'locationId'>[]
-  ): Promise<StorageUnit[]> {
+  ): Promise<any[]> {
     // Verify location exists
-    const location = await prisma.storageLocation.findUnique({
-      where: { id: locationId },
-    });
+    const location = await StorageLocation.findById(locationId);
 
     if (!location) {
       throw new NotFoundError('Storage location');
@@ -73,13 +65,10 @@ export class UnitService {
     }
 
     // Check for existing units
-    const existingUnits = await prisma.storageUnit.findMany({
-      where: {
-        locationId,
-        unitNumber: { in: unitNumbers },
-      },
-      select: { unitNumber: true },
-    });
+    const existingUnits = await StorageUnit.find({
+      locationId,
+      unitNumber: { $in: unitNumbers },
+    }).select('unitNumber');
 
     if (existingUnits.length > 0) {
       const existingNumbers = existingUnits.map((u) => u.unitNumber).join(', ');
@@ -89,37 +78,24 @@ export class UnitService {
     }
 
     // Create all units
-    const createdUnits = await prisma.$transaction(
-      units.map((unit) =>
-        prisma.storageUnit.create({
-          data: {
-            ...unit,
-            locationId,
-            dimensions: unit.dimensions ?? {},
-            features: unit.features ?? [],
-            qrCode: generateUnitQRCode(unit.unitNumber, locationId),
-          },
-        })
-      )
+    const createdUnits = await StorageUnit.insertMany(
+      units.map((unit) => ({
+        ...unit,
+        locationId,
+        dimensions: unit.dimensions ?? {},
+        features: unit.features ?? [],
+        qrCode: generateUnitQRCode(unit.unitNumber, locationId),
+      }))
     );
 
     return createdUnits;
   }
 
   // Get unit by ID
-  async getUnitById(id: string): Promise<StorageUnit> {
-    const unit = await prisma.storageUnit.findUnique({
-      where: { id },
-      include: {
-        location: {
-          select: {
-            id: true,
-            name: true,
-            address: true,
-            city: true,
-          },
-        },
-      },
+  async getUnitById(id: string): Promise<any> {
+    const unit = await StorageUnit.findById(id).populate({
+      path: 'locationId',
+      select: 'id name address city',
     });
 
     if (!unit) {
@@ -132,7 +108,7 @@ export class UnitService {
   // List units with filters
   async listUnits(
     input: UnitSearchInput
-  ): Promise<{ units: StorageUnit[]; total: number; totalPages: number }> {
+  ): Promise<{ units: any[]; total: number; totalPages: number }> {
     const {
       locationId,
       size,
@@ -149,68 +125,58 @@ export class UnitService {
       limit,
     } = input;
 
-    const where: Prisma.StorageUnitWhereInput = {};
+    const query: any = {};
 
     if (locationId) {
-      where.locationId = locationId;
+      query.locationId = locationId;
     }
 
     if (size) {
-      where.size = size;
+      query.size = size;
     }
 
     if (status) {
-      where.status = status;
+      query.status = status;
     }
 
     if (minPriceHourly !== undefined || maxPriceHourly !== undefined) {
-      where.basePriceHourly = {};
+      query.basePriceHourly = {};
       if (minPriceHourly !== undefined) {
-        where.basePriceHourly.gte = minPriceHourly;
+        query.basePriceHourly.$gte = minPriceHourly;
       }
       if (maxPriceHourly !== undefined) {
-        where.basePriceHourly.lte = maxPriceHourly;
+        query.basePriceHourly.$lte = maxPriceHourly;
       }
     }
 
     if (minPriceDaily !== undefined || maxPriceDaily !== undefined) {
-      where.basePriceDaily = {};
+      query.basePriceDaily = {};
       if (minPriceDaily !== undefined) {
-        where.basePriceDaily.gte = minPriceDaily;
+        query.basePriceDaily.$gte = minPriceDaily;
       }
       if (maxPriceDaily !== undefined) {
-        where.basePriceDaily.lte = maxPriceDaily;
+        query.basePriceDaily.$lte = maxPriceDaily;
       }
     }
 
     if (features && features.length > 0) {
-      where.features = {
-        hasEvery: features,
-      };
+      query.features = { $all: features };
     }
 
     if (isActive !== undefined) {
-      where.isActive = isActive;
+      query.isActive = isActive;
     }
 
     const [units, total] = await Promise.all([
-      prisma.storageUnit.findMany({
-        where,
-        include: {
-          location: {
-            select: {
-              id: true,
-              name: true,
-              address: true,
-              city: true,
-            },
-          },
-        },
-        orderBy: { [sortBy]: sortOrder },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      prisma.storageUnit.count({ where }),
+      StorageUnit.find(query)
+        .populate({
+          path: 'locationId',
+          select: 'id name address city',
+        })
+        .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
+        .skip((page - 1) * limit)
+        .limit(limit),
+      StorageUnit.countDocuments(query),
     ]);
 
     return {
@@ -221,10 +187,8 @@ export class UnitService {
   }
 
   // Update unit
-  async updateUnit(id: string, input: UpdateUnitInput): Promise<StorageUnit> {
-    const existing = await prisma.storageUnit.findUnique({
-      where: { id },
-    });
+  async updateUnit(id: string, input: UpdateUnitInput): Promise<any> {
+    const existing = await StorageUnit.findById(id);
 
     if (!existing) {
       throw new NotFoundError('Storage unit');
@@ -232,13 +196,9 @@ export class UnitService {
 
     // If updating unit number, check for conflicts
     if (input.unitNumber && input.unitNumber !== existing.unitNumber) {
-      const conflict = await prisma.storageUnit.findUnique({
-        where: {
-          locationId_unitNumber: {
-            locationId: existing.locationId,
-            unitNumber: input.unitNumber,
-          },
-        },
+      const conflict = await StorageUnit.findOne({
+        locationId: existing.locationId,
+        unitNumber: input.unitNumber,
       });
 
       if (conflict) {
@@ -248,73 +208,60 @@ export class UnitService {
       }
     }
 
-    const unit = await prisma.storageUnit.update({
-      where: { id },
-      data: input,
-    });
+    const unit = await StorageUnit.findByIdAndUpdate(id, input, { new: true });
 
     return unit;
   }
 
   // Update unit status
-  async updateStatus(id: string, status: UnitStatus): Promise<StorageUnit> {
-    const existing = await prisma.storageUnit.findUnique({
-      where: { id },
-      include: {
-        bookings: {
-          where: {
-            status: { in: ['CONFIRMED', 'ACTIVE'] },
-          },
-        },
-      },
-    });
+  async updateStatus(id: string, status: UnitStatus): Promise<any> {
+    const existing = (await StorageUnit.findById(id).populate({
+      path: 'bookings',
+      match: { status: { $in: ['CONFIRMED', 'ACTIVE'] } },
+    })) as any;
 
     if (!existing) {
       throw new NotFoundError('Storage unit');
     }
 
     // Don't allow setting to AVAILABLE if there are active bookings
-    if (status === 'AVAILABLE' && existing.bookings.length > 0) {
+    if (status === 'AVAILABLE' && existing.bookings?.length > 0) {
       throw new ConflictError(
         'Cannot set status to AVAILABLE while there are active bookings'
       );
     }
 
-    const unit = await prisma.storageUnit.update({
-      where: { id },
-      data: { status },
-    });
+    const unit = await StorageUnit.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    );
 
     return unit;
   }
 
   // Delete unit (soft delete)
   async deleteUnit(id: string): Promise<void> {
-    const unit = await prisma.storageUnit.findUnique({
-      where: { id },
-      include: {
-        bookings: {
-          where: {
-            status: { in: ['CONFIRMED', 'ACTIVE'] },
-          },
-        },
-      },
-    });
+    const unit = (await StorageUnit.findById(id).populate({
+      path: 'bookings',
+      match: { status: { $in: ['CONFIRMED', 'ACTIVE'] } },
+    })) as any;
 
     if (!unit) {
       throw new NotFoundError('Storage unit');
     }
 
-    if (unit.bookings.length > 0) {
+    if (unit.bookings?.length > 0) {
       throw new ConflictError(
         'Cannot delete unit with active bookings'
       );
     }
 
-    await prisma.storageUnit.update({
-      where: { id },
-      data: { isActive: false },
-    });
+    await StorageUnit.findByIdAndUpdate(
+      id,
+      { isActive: false },
+      { new: true }
+    );
   }
 
   // Check unit availability for a time period
@@ -326,9 +273,7 @@ export class UnitService {
     available: boolean;
     conflicts: { bookingId: string; startTime: Date; endTime: Date }[];
   }> {
-    const unit = await prisma.storageUnit.findUnique({
-      where: { id: unitId },
-    });
+    const unit = await StorageUnit.findById(unitId);
 
     if (!unit) {
       throw new NotFoundError('Storage unit');
@@ -342,28 +287,21 @@ export class UnitService {
     }
 
     // Find overlapping bookings
-    const conflictingBookings = await prisma.booking.findMany({
-      where: {
-        unitId,
-        status: { in: ['PENDING', 'CONFIRMED', 'ACTIVE'] },
-        OR: [
-          {
-            startTime: { lte: endTime },
-            endTime: { gte: startTime },
-          },
-        ],
-      },
-      select: {
-        id: true,
-        startTime: true,
-        endTime: true,
-      },
-    });
+    const conflictingBookings = await Booking.find({
+      unitId,
+      status: { $in: ['PENDING', 'CONFIRMED', 'ACTIVE'] },
+      $or: [
+        {
+          startTime: { $lte: endTime },
+          endTime: { $gte: startTime },
+        },
+      ],
+    }).select('id startTime endTime');
 
     return {
       available: conflictingBookings.length === 0,
       conflicts: conflictingBookings.map((b) => ({
-        bookingId: b.id,
+        bookingId: b._id.toString(),
         startTime: b.startTime,
         endTime: b.endTime,
       })),
@@ -376,32 +314,41 @@ export class UnitService {
     startTime: Date,
     endTime: Date,
     size?: string
-  ): Promise<StorageUnit[]> {
-    const where: Prisma.StorageUnitWhereInput = {
+  ): Promise<any[]> {
+    const query: any = {
       locationId,
       isActive: true,
       status: 'AVAILABLE',
-      bookings: {
-        none: {
-          status: { in: ['PENDING', 'CONFIRMED', 'ACTIVE'] },
-          OR: [
-            {
-              startTime: { lte: endTime },
-              endTime: { gte: startTime },
-            },
-          ],
-        },
-      },
     };
 
     if (size) {
-      where.size = size as any;
+      query.size = size;
     }
 
-    return prisma.storageUnit.findMany({
-      where,
-      orderBy: { basePriceHourly: 'asc' },
-    });
+    // Find units with no conflicting bookings
+    const units = await StorageUnit.find(query)
+      .sort({ basePriceHourly: 1 });
+
+    // Filter out units with overlapping bookings
+    const availableUnits = [];
+    for (const unit of units) {
+      const conflicts = await Booking.countDocuments({
+        unitId: unit._id,
+        status: { $in: ['PENDING', 'CONFIRMED', 'ACTIVE'] },
+        $or: [
+          {
+            startTime: { $lte: endTime },
+            endTime: { $gte: startTime },
+          },
+        ],
+      });
+
+      if (conflicts === 0) {
+        availableUnits.push(unit);
+      }
+    }
+
+    return availableUnits;
   }
 }
 

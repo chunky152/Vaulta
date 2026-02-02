@@ -1,12 +1,12 @@
 import { Response, NextFunction } from 'express';
-import { UserRole } from '@prisma/client';
+import { User, UserRole } from '../models/User.js';
 import {
   AuthenticatedRequest,
   AuthenticationError,
   AuthorizationError,
 } from '../types/index.js';
 import { verifyAccessToken } from '../utils/jwt.js';
-import { prisma } from '../config/database.js';
+import mongoose from 'mongoose';
 
 // Extract token from Authorization header
 function extractToken(authHeader: string | undefined): string | null {
@@ -149,10 +149,8 @@ export async function verifyActiveUser(
       throw new AuthenticationError();
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      select: { isActive: true },
-    });
+    const objectId = new mongoose.Types.ObjectId(req.user.id);
+    const user = await User.findById(objectId).select('isActive');
 
     if (!user) {
       throw new AuthenticationError('User not found');

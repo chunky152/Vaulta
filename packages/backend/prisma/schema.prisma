@@ -1,16 +1,16 @@
-// AirVault Database Schema
-// PostgreSQL with PostGIS for geospatial queries
-
-generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions"]
-}
-
-datasource db {
-  provider   = "postgresql"
-  url        = env("DATABASE_URL")
-  extensions = [postgis, uuid_ossp(map: "uuid-ossp")]
-}
+// DEPRECATED: This Prisma schema file is kept for reference only.
+// The application has been fully migrated to MongoDB with Mongoose ODM.
+// Data models are now defined in: packages/backend/src/models/
+// 
+// Migration Details:
+// - ORM: Prisma → Mongoose ^7.6.4
+// - Database: PostgreSQL + PostGIS → MongoDB
+// - All service layers updated to use Mongoose models
+// - All Prisma imports (@prisma/client) removed
+// - Transactions use Mongoose sessions instead of Prisma $transaction
+//
+// This file is no longer used by the application.
+// To regenerate, refer to the MongoDB Mongoose models in src/models/ 
 
 // ============================================
 // ENUMS
@@ -99,7 +99,7 @@ enum ItemCondition {
 // ============================================
 
 model User {
-  id                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id                String    @id @map("_id") @default(auto()) @db.ObjectId
   email             String    @unique @db.VarChar(255)
   passwordHash      String    @map("password_hash") @db.VarChar(255)
   firstName         String?   @map("first_name") @db.VarChar(100)
@@ -110,7 +110,7 @@ model User {
   phoneVerified     Boolean   @default(false) @map("phone_verified")
   profileImageUrl   String?   @map("profile_image_url") @db.VarChar(500)
   referralCode      String    @unique @map("referral_code") @db.VarChar(20)
-  referredById      String?   @map("referred_by_id") @db.Uuid
+  referredById      String?   @map("referred_by_id") @db.ObjectId
   loyaltyPoints     Int       @default(0) @map("loyalty_points")
   isActive          Boolean   @default(true) @map("is_active")
   lastLoginAt       DateTime? @map("last_login_at")
@@ -135,7 +135,7 @@ model User {
 }
 
 model RefreshToken {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id        String   @id @map("_id") @default(auto()) @db.ObjectId
   token     String   @unique @db.VarChar(500)
   userId    String   @map("user_id") @db.Uuid
   expiresAt DateTime @map("expires_at")
@@ -149,17 +149,18 @@ model RefreshToken {
 }
 
 model StorageLocation {
-  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id             String   @id @map("_id") @default(auto()) @db.ObjectId
   name           String   @db.VarChar(200)
   slug           String   @unique @db.VarChar(200)
   description    String?  @db.Text
-  address        String   @db.VarChar(500)
-  city           String   @db.VarChar(100)
-  state          String?  @db.VarChar(100)
-  country        String   @db.VarChar(100)
-  postalCode     String?  @map("postal_code") @db.VarChar(20)
+  address        String
+  city           String
+  state          String?
+  country        String
+  postalCode     String?  @map("postal_code")
   latitude       Float
   longitude      Float
+  location       Json     @map("location")
   operatingHours Json     @default("{}") @map("operating_hours")
   contactPhone   String?  @map("contact_phone") @db.VarChar(20)
   contactEmail   String?  @map("contact_email") @db.VarChar(255)
@@ -183,8 +184,8 @@ model StorageLocation {
 }
 
 model StorageUnit {
-  id              String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  locationId      String     @map("location_id") @db.Uuid
+  id              String     @id @map("_id") @default(auto()) @db.ObjectId
+  locationId      String     @map("location_id") @db.ObjectId
   unitNumber      String     @map("unit_number") @db.VarChar(50)
   name            String?    @db.VarChar(100)
   size            UnitSize
@@ -213,10 +214,10 @@ model StorageUnit {
 }
 
 model Booking {
-  id            String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  bookingNumber String        @unique @map("booking_number") @db.VarChar(20)
-  userId        String        @map("user_id") @db.Uuid
-  unitId        String        @map("unit_id") @db.Uuid
+  id            String        @id @map("_id") @default(auto()) @db.ObjectId
+  bookingNumber String        @unique @map("booking_number")
+  userId        String        @map("user_id") @db.ObjectId
+  unitId        String        @map("unit_id") @db.ObjectId
   status        BookingStatus @default(PENDING)
   startTime     DateTime      @map("start_time")
   endTime       DateTime      @map("end_time")
@@ -246,16 +247,16 @@ model Booking {
 }
 
 model Transaction {
-  id                    String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  bookingId             String?           @map("booking_id") @db.Uuid
-  userId                String            @map("user_id") @db.Uuid
+  id                    String            @id @map("_id") @default(auto()) @db.ObjectId
+  bookingId             String?           @map("booking_id") @db.ObjectId
+  userId                String            @map("user_id") @db.ObjectId
   amount                Float
-  currency              String            @default("USD") @db.VarChar(3)
+  currency              String            @default("USD")
   type                  TransactionType
   status                TransactionStatus @default(PENDING)
-  stripePaymentIntentId String?           @map("stripe_payment_intent_id") @db.VarChar(255)
-  stripeChargeId        String?           @map("stripe_charge_id") @db.VarChar(255)
-  stripeRefundId        String?           @map("stripe_refund_id") @db.VarChar(255)
+  stripePaymentIntentId String?           @map("stripe_payment_intent_id")
+  stripeChargeId        String?           @map("stripe_charge_id")
+  stripeRefundId        String?           @map("stripe_refund_id")
   metadata              Json              @default("{}")
   failureReason         String?           @map("failure_reason") @db.Text
   createdAt             DateTime          @default(now()) @map("created_at")
@@ -273,12 +274,12 @@ model Transaction {
 }
 
 model Notification {
-  id        String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  userId    String               @map("user_id") @db.Uuid
+  id        String               @id @map("_id") @default(auto()) @db.ObjectId
+  userId    String               @map("user_id") @db.ObjectId
   type      NotificationType
   category  NotificationCategory
-  title     String               @db.VarChar(200)
-  message   String               @db.Text
+  title     String
+  message   String
   data      Json                 @default("{}")
   sentAt    DateTime?            @map("sent_at")
   readAt    DateTime?            @map("read_at")
@@ -294,13 +295,13 @@ model Notification {
 }
 
 model Review {
-  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  userId     String   @map("user_id") @db.Uuid
-  locationId String   @map("location_id") @db.Uuid
-  bookingId  String   @unique @map("booking_id") @db.Uuid
+  id         String   @id @map("_id") @default(auto()) @db.ObjectId
+  userId     String   @map("user_id") @db.ObjectId
+  locationId String   @map("location_id") @db.ObjectId
+  bookingId  String   @unique @map("booking_id") @db.ObjectId
   rating     Int      // 1-5
-  title      String?  @db.VarChar(200)
-  comment    String?  @db.Text
+  title      String?
+  comment    String?
   isPublic   Boolean  @default(true) @map("is_public")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
@@ -317,13 +318,13 @@ model Review {
 }
 
 model LoyaltyTransaction {
-  id          String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  userId      String                 @map("user_id") @db.Uuid
+  id          String                 @id @map("_id") @default(auto()) @db.ObjectId
+  userId      String                 @map("user_id") @db.ObjectId
   points      Int
   type        LoyaltyTransactionType
   source      LoyaltySource
-  referenceId String?                @map("reference_id") @db.Uuid
-  description String?                @db.VarChar(255)
+  referenceId String?                @map("reference_id") @db.ObjectId
+  description String?
   createdAt   DateTime               @default(now()) @map("created_at")
 
   // Relations
@@ -335,8 +336,8 @@ model LoyaltyTransaction {
 }
 
 model NotificationPreference {
-  id             String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  userId         String  @unique @map("user_id") @db.Uuid
+  id             String  @id @map("_id") @default(auto()) @db.ObjectId
+  userId         String  @unique @map("user_id") @db.ObjectId
   emailBooking   Boolean @default(true) @map("email_booking")
   emailPayment   Boolean @default(true) @map("email_payment")
   emailReminder  Boolean @default(true) @map("email_reminder")
@@ -355,10 +356,10 @@ model NotificationPreference {
 
 // Pricing rules for dynamic pricing
 model PricingRule {
-  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name        String   @db.VarChar(100)
-  description String?  @db.Text
-  ruleType    String   @db.VarChar(50) // demand, time, location, size
+  id          String   @id @map("_id") @default(auto()) @db.ObjectId
+  name        String
+  description String?
+  ruleType    String   // demand, time, location, size
   conditions  Json     @default("{}")
   multiplier  Float    @default(1.0)
   isActive    Boolean  @default(true) @map("is_active")
@@ -374,17 +375,17 @@ model PricingRule {
 }
 
 model InventoryItem {
-  id             String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  bookingId      String        @map("booking_id") @db.Uuid
-  userId         String        @map("user_id") @db.Uuid
-  name           String        @db.VarChar(255)
-  description    String?       @db.Text
-  category       String        @db.VarChar(100)
+  id             String        @id @map("_id") @default(auto()) @db.ObjectId
+  bookingId      String        @map("booking_id") @db.ObjectId
+  userId         String        @map("user_id") @db.ObjectId
+  name           String
+  description    String?
+  category       String
   quantity       Int           @default(1)
   condition      ItemCondition @default(GOOD)
   estimatedValue Float?        @map("estimated_value")
   photos         Json          @default("[]")
-  notes          String?       @db.Text
+  notes          String?
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
 

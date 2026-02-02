@@ -1,45 +1,32 @@
-import { PrismaClient } from '@prisma/client';
+import mongoose from 'mongoose';
+import { config } from './index.js';
 
-// Create a singleton Prisma client instance
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
-
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log:
-      process.env.NODE_ENV === 'development'
-        ? ['query', 'error', 'warn']
-        : ['error'],
-  });
-
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma;
-}
-
-// Connect to database
+// Connect to MongoDB
 export async function connectDatabase(): Promise<void> {
   try {
-    await prisma.$connect();
-    console.log('Database connected successfully');
+    await mongoose.connect(config.database.url);
+    console.log('MongoDB connected successfully');
   } catch (error) {
-    console.error('Failed to connect to database:', error);
+    console.error('Failed to connect to MongoDB:', error);
     throw error;
   }
 }
 
 // Disconnect from database
 export async function disconnectDatabase(): Promise<void> {
-  await prisma.$disconnect();
-  console.log('Database disconnected');
+  await mongoose.disconnect();
+  console.log('MongoDB disconnected');
 }
 
 // Health check
 export async function checkDatabaseHealth(): Promise<boolean> {
   try {
-    await prisma.$queryRaw`SELECT 1`;
-    return true;
+    const admin = mongoose.connection.db?.admin();
+    if (admin) {
+      await admin.ping();
+      return true;
+    }
+    return false;
   } catch {
     return false;
   }

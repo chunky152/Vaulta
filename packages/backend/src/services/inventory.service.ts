@@ -1,4 +1,6 @@
-import { prisma } from '../config/database.js';
+import { Booking } from '../models/Booking.js';
+import { InventoryItem } from '../models/InventoryItem.js';
+import mongoose from 'mongoose';
 import { NotFoundError, AuthorizationError } from '../types/index.js';
 import {
   CreateInventoryItemInput,
@@ -12,18 +14,15 @@ export class InventoryService {
     userId: string,
     bookingId: string,
     data: CreateInventoryItemInput
-  ) {
+  ): Promise<any> {
     // Verify booking exists and belongs to user
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-      select: { id: true, userId: true, status: true },
-    });
+    const booking = await Booking.findById(bookingId).select('_id userId status');
 
     if (!booking) {
       throw new NotFoundError('Booking');
     }
 
-    if (booking.userId !== userId) {
+    if (booking.userId.toString() !== userId) {
       throw new AuthorizationError('You do not have access to this booking');
     }
 
@@ -34,39 +33,33 @@ export class InventoryService {
       );
     }
 
-    const item = await prisma.inventoryItem.create({
-      data: {
-        bookingId,
-        userId,
-        name: data.name,
-        description: data.description,
-        category: data.category,
-        quantity: data.quantity ?? 1,
-        condition: data.condition ?? 'GOOD',
-        estimatedValue: data.estimatedValue,
-        photos: data.photos ?? [],
-        notes: data.notes,
-      },
-      include: {
-        booking: {
-          select: {
-            bookingNumber: true,
-            unit: {
-              select: {
-                unitNumber: true,
-                location: {
-                  select: {
-                    name: true,
-                  },
-                },
-              },
-            },
-          },
+    const item = await InventoryItem.create({
+      bookingId: new mongoose.Types.ObjectId(bookingId),
+      userId: new mongoose.Types.ObjectId(userId),
+      name: data.name,
+      description: data.description,
+      category: data.category,
+      quantity: data.quantity ?? 1,
+      condition: data.condition ?? 'GOOD',
+      estimatedValue: data.estimatedValue,
+      photos: data.photos ?? [],
+      notes: data.notes,
+    });
+
+    // Populate the booking and its related data
+    const populatedItem = await item.populate({
+      path: 'bookingId',
+      populate: {
+        path: 'unitId',
+        select: 'unitNumber locationId',
+        populate: {
+          path: 'locationId',
+          select: 'name',
         },
       },
     });
 
-    return item;
+    return populatedItem;
   }
 
   // Update an inventory item
@@ -74,47 +67,38 @@ export class InventoryService {
     userId: string,
     itemId: string,
     data: UpdateInventoryItemInput
-  ) {
-    const item = await prisma.inventoryItem.findUnique({
-      where: { id: itemId },
-      select: { id: true, userId: true },
-    });
+  ): Promise<any> {
+    const item = await InventoryItem.findById(itemId).select('_id userId');
 
     if (!item) {
       throw new NotFoundError('Inventory item');
     }
 
-    if (item.userId !== userId) {
+    if (item.userId.toString() !== userId) {
       throw new AuthorizationError('You do not have access to this item');
     }
 
-    const updatedItem = await prisma.inventoryItem.update({
-      where: { id: itemId },
-      data: {
-        ...(data.name && { name: data.name }),
-        ...(data.description !== undefined && { description: data.description }),
-        ...(data.category && { category: data.category }),
-        ...(data.quantity && { quantity: data.quantity }),
-        ...(data.condition && { condition: data.condition }),
-        ...(data.estimatedValue !== undefined && { estimatedValue: data.estimatedValue }),
-        ...(data.photos && { photos: data.photos }),
-        ...(data.notes !== undefined && { notes: data.notes }),
-      },
-      include: {
-        booking: {
-          select: {
-            bookingNumber: true,
-            unit: {
-              select: {
-                unitNumber: true,
-                location: {
-                  select: {
-                    name: true,
-                  },
-                },
-              },
-            },
-          },
+    const updateData: any = {};
+    if (data.name) updateData.name = data.name;
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.category) updateData.category = data.category;
+    if (data.quantity) updateData.quantity = data.quantity;
+    if (data.condition) updateData.condition = data.condition;
+    if (data.estimatedValue !== undefined) updateData.estimatedValue = data.estimatedValue;
+    if (data.photos) updateData.photos = data.photos;
+    if (data.notes !== undefined) updateData.notes = data.notes;
+
+    const updatedItem = await InventoryItem.findByIdAndUpdate(itemId, updateData, {
+      new: true,
+    }).populate({
+      path: 'booking',
+      select: 'bookingNumber unit',
+      populate: {
+        path: 'unit',
+        select: 'unitNumber location',
+        populate: {
+          path: 'location',
+          select: 'name',
         },
       },
     });
@@ -124,49 +108,30 @@ export class InventoryService {
 
   // Delete an inventory item
   async deleteItem(userId: string, itemId: string) {
-    const item = await prisma.inventoryItem.findUnique({
-      where: { id: itemId },
-      select: { id: true, userId: true },
-    });
+    const item = await InventoryItem.findById(itemId).select('_id userId');
 
     if (!item) {
       throw new NotFoundError('Inventory item');
     }
 
-    if (item.userId !== userId) {
+    if (item.userId.toString() !== userId) {
       throw new AuthorizationError('You do not have access to this item');
     }
 
-    await prisma.inventoryItem.delete({
-      where: { id: itemId },
-    });
+    await InventoryItem.findByIdAndDelete(itemId);
   }
 
   // Get a single inventory item
-  async getItemById(userId: string, itemId: string) {
-    const item = await prisma.inventoryItem.findUnique({
-      where: { id: itemId },
-      include: {
-        booking: {
-          select: {
-            bookingNumber: true,
-            status: true,
-            startTime: true,
-            endTime: true,
-            unit: {
-              select: {
-                unitNumber: true,
-                size: true,
-                location: {
-                  select: {
-                    name: true,
-                    address: true,
-                    city: true,
-                  },
-                },
-              },
-            },
-          },
+  async getItemById(userId: string, itemId: string): Promise<any> {
+    const item = await InventoryItem.findById(itemId).populate({
+      path: 'booking',
+      select: 'bookingNumber status startTime endTime unit',
+      populate: {
+        path: 'unit',
+        select: 'unitNumber size location',
+        populate: {
+          path: 'location',
+          select: 'name address city',
         },
       },
     });
@@ -175,7 +140,7 @@ export class InventoryService {
       throw new NotFoundError('Inventory item');
     }
 
-    if (item.userId !== userId) {
+    if (item.userId.toString() !== userId) {
       throw new AuthorizationError('You do not have access to this item');
     }
 
@@ -187,45 +152,40 @@ export class InventoryService {
     userId: string,
     bookingId: string,
     params: ListInventoryInput
-  ) {
+  ): Promise<any> {
     // Verify booking belongs to user
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-      select: { id: true, userId: true },
-    });
+    const booking = await Booking.findById(bookingId).select('_id userId');
 
     if (!booking) {
       throw new NotFoundError('Booking');
     }
 
-    if (booking.userId !== userId) {
+    if (booking.userId.toString() !== userId) {
       throw new AuthorizationError('You do not have access to this booking');
     }
 
     const { page = 1, limit = 20, category, search } = params;
     const skip = (page - 1) * limit;
 
-    const where: any = { bookingId };
+    const where: any = { bookingId: new mongoose.Types.ObjectId(bookingId) };
 
     if (category) {
       where.category = category;
     }
 
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
+      where.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
       ];
     }
 
     const [items, total] = await Promise.all([
-      prisma.inventoryItem.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.inventoryItem.count({ where }),
+      InventoryItem.find(where)
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 }),
+      InventoryItem.countDocuments(where),
     ]);
 
     return {
@@ -240,45 +200,37 @@ export class InventoryService {
     const { page = 1, limit = 20, category, search } = params;
     const skip = (page - 1) * limit;
 
-    const where: any = { userId };
+    const where: any = { userId: new mongoose.Types.ObjectId(userId) };
 
     if (category) {
       where.category = category;
     }
 
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
+      where.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
       ];
     }
 
     const [items, total] = await Promise.all([
-      prisma.inventoryItem.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          booking: {
-            select: {
-              bookingNumber: true,
-              status: true,
-              unit: {
-                select: {
-                  unitNumber: true,
-                  location: {
-                    select: {
-                      name: true,
-                    },
-                  },
-                },
-              },
+      InventoryItem.find(where)
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 })
+        .populate({
+          path: 'booking',
+          select: 'bookingNumber status unit',
+          populate: {
+            path: 'unit',
+            select: 'unitNumber location',
+            populate: {
+              path: 'location',
+              select: 'name',
             },
           },
-        },
-      }),
-      prisma.inventoryItem.count({ where }),
+        }),
+      InventoryItem.countDocuments(where),
     ]);
 
     return {
@@ -289,26 +241,26 @@ export class InventoryService {
   }
 
   // Get inventory summary for user
-  async getInventorySummary(userId: string) {
-    const [totalItems, totalValue, categoryBreakdown] = await Promise.all([
-      prisma.inventoryItem.count({ where: { userId } }),
-      prisma.inventoryItem.aggregate({
-        where: { userId, estimatedValue: { not: null } },
-        _sum: { estimatedValue: true },
-      }),
-      prisma.inventoryItem.groupBy({
-        by: ['category'],
-        where: { userId },
-        _count: { id: true },
-      }),
+  async getInventorySummary(userId: string): Promise<any> {
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    const [totalItems, totalValueResult, categoryBreakdown] = await Promise.all([
+      InventoryItem.countDocuments({ userId: userObjectId }),
+      InventoryItem.aggregate([
+        { $match: { userId: userObjectId, estimatedValue: { $ne: null } } },
+        { $group: { _id: null, total: { $sum: '$estimatedValue' } } },
+      ]),
+      InventoryItem.aggregate([
+        { $match: { userId: userObjectId } },
+        { $group: { _id: '$category', count: { $sum: 1 } } },
+      ]),
     ]);
 
     return {
       totalItems,
-      totalEstimatedValue: totalValue._sum.estimatedValue ?? 0,
+      totalEstimatedValue: totalValueResult[0]?.total ?? 0,
       categoryBreakdown: categoryBreakdown.map((c) => ({
-        category: c.category,
-        count: c._count.id,
+        category: c._id,
+        count: c.count,
       })),
     };
   }

@@ -1,5 +1,6 @@
-import { prisma } from '../config/database.js';
-import { StorageUnit } from '@prisma/client';
+import { StorageUnit } from '../models/StorageUnit.js';
+import { PricingRule as PricingRuleModel } from '../models/PricingRule.js';
+import mongoose from 'mongoose';
 import { BookingPriceCalculation, PriceAdjustment, NotFoundError } from '../types/index.js';
 import { calculateDuration, determinePricingType } from '../utils/helpers.js';
 import { cache } from '../config/redis.js';
@@ -20,13 +21,9 @@ export class PricingService {
     startTime: Date,
     endTime: Date
   ): Promise<BookingPriceCalculation> {
-    const unit = await prisma.storageUnit.findUnique({
-      where: { id: unitId },
-      include: {
-        location: {
-          select: { city: true },
-        },
-      },
+    const unit = await StorageUnit.findById(unitId).populate({
+      path: 'locationId',
+      select: 'city',
     });
 
     if (!unit) {
@@ -40,21 +37,21 @@ export class PricingService {
     let basePrice: number;
     switch (pricingType) {
       case 'hourly':
-        basePrice = unit.basePriceHourly * duration.hours;
+        basePrice = (unit as any).basePriceHourly * duration.hours;
         break;
       case 'daily':
-        basePrice = unit.basePriceDaily * duration.days;
+        basePrice = (unit as any).basePriceDaily * duration.days;
         break;
       case 'monthly':
-        basePrice = (unit.basePriceMonthly ?? unit.basePriceDaily * 30) * duration.months;
+        basePrice = ((unit as any).basePriceMonthly ?? (unit as any).basePriceDaily * 30) * duration.months;
         break;
       default:
-        basePrice = unit.basePriceHourly * duration.hours;
+        basePrice = (unit as any).basePriceHourly * duration.hours;
     }
 
     // Get applicable pricing rules
     const adjustments = await this.getApplicablePriceAdjustments(
-      unit,
+      unit as any,
       startTime,
       endTime,
       basePrice
@@ -71,7 +68,7 @@ export class PricingService {
     }
 
     // Ensure minimum price
-    subtotal = Math.max(subtotal, unit.basePriceHourly);
+    subtotal = Math.max(subtotal, (unit as any).basePriceHourly);
 
     // Calculate tax (configurable, defaulting to 10%)
     const taxRate = 0.10;
@@ -88,13 +85,13 @@ export class PricingService {
       subtotal: Math.round(subtotal * 100) / 100,
       tax,
       total,
-      currency: unit.currency,
+      currency: (unit as any).currency,
     };
   }
 
   // Get applicable price adjustments
   private async getApplicablePriceAdjustments(
-    unit: StorageUnit & { location: { city: string } },
+    unit: any,
     startTime: Date,
     endTime: Date,
     basePrice: number
@@ -198,30 +195,27 @@ export class PricingService {
     }
 
     const now = new Date();
-    const rules = await prisma.pricingRule.findMany({
-      where: {
-        isActive: true,
-        OR: [
-          { startDate: null, endDate: null },
-          {
-            startDate: { lte: now },
-            endDate: { gte: now },
-          },
-          {
-            startDate: { lte: now },
-            endDate: null,
-          },
-          {
-            startDate: null,
-            endDate: { gte: now },
-          },
-        ],
-      },
-      orderBy: { priority: 'desc' },
-    });
+    const rules = await PricingRuleModel.find({
+      isActive: true,
+      $or: [
+        { startDate: null, endDate: null },
+        {
+          startDate: { $lte: now },
+          endDate: { $gte: now },
+        },
+        {
+          startDate: { $lte: now },
+          endDate: null,
+        },
+        {
+          startDate: null,
+          endDate: { $gte: now },
+        },
+      ],
+    }).sort({ priority: -1 });
 
     const transformedRules = rules.map((rule) => ({
-      id: rule.id,
+      id: rule._id.toString(),
       name: rule.name,
       ruleType: rule.ruleType,
       conditions: rule.conditions as Record<string, unknown>,
@@ -245,11 +239,9 @@ export class PricingService {
     startDate?: Date;
     endDate?: Date;
   }): Promise<void> {
-    await prisma.pricingRule.create({
-      data: {
-        ...data,
-        priority: data.priority ?? 0,
-      },
+    await PricingRuleModel.create({
+      ...data,
+      priority: data.priority ?? 0,
     });
 
     // Invalidate cache
@@ -264,20 +256,18 @@ export class PricingService {
     monthly: number;
     currency: string;
   }> {
-    const unit = await prisma.storageUnit.findUnique({
-      where: { id: unitId },
-    });
+    const unit = await StorageUnit.findById(unitId);
 
     if (!unit) {
       throw new NotFoundError('Storage unit');
     }
 
     return {
-      hourly: unit.basePriceHourly,
-      daily: unit.basePriceDaily,
-      weekly: unit.basePriceDaily * 7,
-      monthly: unit.basePriceMonthly ?? unit.basePriceDaily * 30,
-      currency: unit.currency,
+      hourly: (unit as any).basePriceHourly,
+      daily: (unit as any).basePriceDaily,
+      weekly: (unit as any).basePriceDaily * 7,
+      monthly: (unit as any).basePriceMonthly ?? (unit as any).basePriceDaily * 30,
+      currency: (unit as any).currency,
     };
   }
 }

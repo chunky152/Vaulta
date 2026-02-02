@@ -1,5 +1,9 @@
-import { prisma } from '../config/database.js';
-import { Booking, BookingStatus, Prisma } from '@prisma/client';
+import { Booking, BookingStatus } from '../models/Booking.js';
+import { StorageUnit } from '../models/StorageUnit.js';
+import { StorageLocation } from '../models/StorageLocation.js';
+import { Transaction } from '../models/Transaction.js';
+import { User } from '../models/User.js';
+import mongoose from 'mongoose';
 import {
   NotFoundError,
   ConflictError,
@@ -51,9 +55,7 @@ export class BookingService {
     let attempts = 0;
     do {
       bookingNumber = generateBookingNumber();
-      const exists = await prisma.booking.findUnique({
-        where: { bookingNumber },
-      });
+      const exists = await Booking.findOne({ bookingNumber });
       if (!exists) break;
       attempts++;
     } while (attempts < 10);
@@ -62,33 +64,25 @@ export class BookingService {
     const accessCode = generateAccessCode();
 
     // Create booking
-    const booking = await prisma.booking.create({
-      data: {
-        bookingNumber,
-        userId,
-        unitId,
-        startTime,
-        endTime,
-        totalPrice: priceCalculation.total,
-        currency: priceCalculation.currency,
-        accessCode,
-        notes,
-        status: 'PENDING',
-      },
-      include: {
-        unit: {
-          include: {
-            location: {
-              select: {
-                id: true,
-                name: true,
-                address: true,
-                city: true,
-              },
-            },
-          },
-        },
-      },
+    const booking = await Booking.create({
+      bookingNumber,
+      userId: new mongoose.Types.ObjectId(userId),
+      unitId: new mongoose.Types.ObjectId(unitId),
+      startTime,
+      endTime,
+      totalPrice: priceCalculation.total,
+      currency: priceCalculation.currency,
+      accessCode,
+      notes,
+      status: 'PENDING',
+    });
+    
+    await booking.populate({
+      path: 'unit',
+      populate: {
+        path: 'location',
+        select: 'id name address city'
+      }
     });
 
     return booking;
@@ -96,41 +90,25 @@ export class BookingService {
 
   // Get booking by ID
   async getBookingById(bookingId: string, userId?: string): Promise<Booking> {
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-      include: {
-        unit: {
-          include: {
-            location: {
-              select: {
-                id: true,
-                name: true,
-                address: true,
-                city: true,
-                latitude: true,
-                longitude: true,
-              },
-            },
-          },
-        },
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            phone: true,
-          },
-        },
-      },
-    });
+    const booking = await Booking.findById(bookingId)
+      .populate({
+        path: 'unit',
+        populate: {
+          path: 'location',
+          select: 'id name address city latitude longitude'
+        }
+      })
+      .populate({
+        path: 'user',
+        select: 'id email firstName lastName phone'
+      });
 
     if (!booking) {
       throw new NotFoundError('Booking');
     }
 
     // If userId is provided, verify ownership
-    if (userId && booking.userId !== userId) {
+    if (userId && booking.userId.toString() !== userId) {
       throw new AuthorizationError('You can only access your own bookings');
     }
 
@@ -139,16 +117,13 @@ export class BookingService {
 
   // Get booking by booking number
   async getBookingByNumber(bookingNumber: string): Promise<Booking> {
-    const booking = await prisma.booking.findUnique({
-      where: { bookingNumber },
-      include: {
-        unit: {
-          include: {
-            location: true,
-          },
-        },
-      },
-    });
+    const booking = await Booking.findOne({ bookingNumber })
+      .populate({
+        path: 'unit',
+        populate: {
+          path: 'location'
+        }
+      });
 
     if (!booking) {
       throw new NotFoundError('Booking');
@@ -174,50 +149,41 @@ export class BookingService {
       limit,
     } = input;
 
-    const where: Prisma.BookingWhereInput = { userId };
+    const where: any = { userId: new mongoose.Types.ObjectId(userId) };
 
     if (status) {
       where.status = status;
     }
 
     if (unitId) {
-      where.unitId = unitId;
+      where.unitId = new mongoose.Types.ObjectId(unitId);
     }
 
     if (locationId) {
-      where.unit = { locationId };
+      where['unit.locationId'] = new mongoose.Types.ObjectId(locationId);
     }
 
     if (startDate) {
-      where.startTime = { gte: startDate };
+      where.startTime = { $gte: startDate };
     }
 
     if (endDate) {
-      where.endTime = { lte: endDate };
+      where.endTime = { $lte: endDate };
     }
 
     const [bookings, total] = await Promise.all([
-      prisma.booking.findMany({
-        where,
-        include: {
-          unit: {
-            include: {
-              location: {
-                select: {
-                  id: true,
-                  name: true,
-                  address: true,
-                  city: true,
-                },
-              },
-            },
-          },
-        },
-        orderBy: { [sortBy]: sortOrder },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      prisma.booking.count({ where }),
+      Booking.find(where)
+        .populate({
+          path: 'unit',
+          populate: {
+            path: 'location',
+            select: 'id name address city'
+          }
+        })
+        .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
+        .skip((page - 1) * limit)
+        .limit(limit),
+      Booking.countDocuments(where),
     ]);
 
     return {
@@ -229,9 +195,7 @@ export class BookingService {
 
   // Confirm booking (after payment)
   async confirmBooking(bookingId: string): Promise<Booking> {
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-    });
+    const booking = await Booking.findById(bookingId);
 
     if (!booking) {
       throw new NotFoundError('Booking');
@@ -263,16 +227,15 @@ export class BookingService {
       }
     }
 
-    const updatedBooking = await prisma.booking.update({
-      where: { id: bookingId },
-      data: { status: 'CONFIRMED' },
-      include: {
-        unit: {
-          include: {
-            location: true,
-          },
-        },
-      },
+    const updatedBooking = await Booking.findByIdAndUpdate(
+      bookingId,
+      { status: 'CONFIRMED' },
+      { new: true }
+    ).populate({
+      path: 'unit',
+      populate: {
+        path: 'location'
+      }
     });
 
     return updatedBooking;
@@ -300,24 +263,35 @@ export class BookingService {
       );
     }
 
-    const updatedBooking = await prisma.$transaction(async (tx) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    
+    try {
       // Update booking status
-      const updated = await tx.booking.update({
-        where: { id: bookingId },
-        data: {
+      const updated = await Booking.findByIdAndUpdate(
+        bookingId,
+        {
           status: 'ACTIVE',
           checkInTime: now,
         },
-      });
+        { new: true, session }
+      );
 
       // Update unit status
-      await tx.storageUnit.update({
-        where: { id: booking.unitId },
-        data: { status: 'OCCUPIED' },
-      });
+      await StorageUnit.findByIdAndUpdate(
+        booking.unitId,
+        { status: 'OCCUPIED' },
+        { session }
+      );
 
+      await session.commitTransaction();
       return updated;
-    });
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      await session.endSession();
+    }
 
     return updatedBooking;
   }
@@ -334,44 +308,57 @@ export class BookingService {
 
     const now = new Date();
 
-    const updatedBooking = await prisma.$transaction(async (tx) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    
+    try {
       // Update booking status
-      const updated = await tx.booking.update({
-        where: { id: bookingId },
-        data: {
+      const updated = await Booking.findByIdAndUpdate(
+        bookingId,
+        {
           status: 'COMPLETED',
           checkOutTime: now,
         },
-      });
+        { new: true, session }
+      );
 
       // Update unit status
-      await tx.storageUnit.update({
-        where: { id: booking.unitId },
-        data: { status: 'AVAILABLE' },
-      });
+      await StorageUnit.findByIdAndUpdate(
+        booking.unitId,
+        { status: 'AVAILABLE' },
+        { session }
+      );
 
       // Award loyalty points (1 point per $1 spent)
       const points = Math.floor(booking.totalPrice);
       if (points > 0) {
-        await tx.user.update({
-          where: { id: userId },
-          data: { loyaltyPoints: { increment: points } },
-        });
+        await User.findByIdAndUpdate(
+          userId,
+          { $inc: { loyaltyPoints: points } },
+          { session }
+        );
 
-        await tx.loyaltyTransaction.create({
-          data: {
-            userId,
+        await LoyaltyTransaction.create(
+          [{
+            userId: new mongoose.Types.ObjectId(userId),
             points,
             type: 'EARNED',
             source: 'BOOKING',
-            referenceId: bookingId,
+            referenceId: new mongoose.Types.ObjectId(bookingId),
             description: `Points earned from booking ${booking.bookingNumber}`,
-          },
-        });
+          }],
+          { session }
+        );
       }
 
+      await session.commitTransaction();
       return updated;
-    });
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      await session.endSession();
+    }
 
     return updatedBooking;
   }
@@ -414,13 +401,14 @@ export class BookingService {
       input.newEndTime
     );
 
-    const updatedBooking = await prisma.booking.update({
-      where: { id: bookingId },
-      data: {
+    const updatedBooking = await Booking.findByIdAndUpdate(
+      bookingId,
+      {
         endTime: input.newEndTime,
         totalPrice: booking.totalPrice + extensionPrice.total,
       },
-    });
+      { new: true }
+    );
 
     return {
       booking: updatedBooking,
@@ -442,23 +430,34 @@ export class BookingService {
       );
     }
 
-    const updatedBooking = await prisma.$transaction(async (tx) => {
-      const updated = await tx.booking.update({
-        where: { id: bookingId },
-        data: {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    
+    try {
+      const updated = await Booking.findByIdAndUpdate(
+        bookingId,
+        {
           status: 'CANCELLED',
           cancellationReason: reason,
         },
-      });
+        { new: true, session }
+      );
 
       // If unit was reserved, set back to available
-      await tx.storageUnit.update({
-        where: { id: booking.unitId },
-        data: { status: 'AVAILABLE' },
-      });
+      await StorageUnit.findByIdAndUpdate(
+        booking.unitId,
+        { status: 'AVAILABLE' },
+        { session }
+      );
 
+      await session.commitTransaction();
       return updated;
-    });
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      await session.endSession();
+    }
 
     return updatedBooking;
   }
@@ -476,10 +475,11 @@ export class BookingService {
 
     const newCode = generateAccessCode();
 
-    await prisma.booking.update({
-      where: { id: bookingId },
-      data: { accessCode: newCode },
-    });
+    await Booking.findByIdAndUpdate(
+      bookingId,
+      { accessCode: newCode },
+      { new: true }
+    );
 
     return newCode;
   }
@@ -489,34 +489,23 @@ export class BookingService {
     const now = new Date();
     const cutoff = new Date(now.getTime() + hoursAhead * 60 * 60 * 1000);
 
-    return prisma.booking.findMany({
-      where: {
-        status: 'CONFIRMED',
-        startTime: {
-          gte: now,
-          lte: cutoff,
-        },
+    return Booking.find({
+      status: 'CONFIRMED',
+      startTime: {
+        $gte: now,
+        $lte: cutoff,
       },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            phone: true,
-          },
-        },
-        unit: {
-          include: {
-            location: {
-              select: {
-                name: true,
-                address: true,
-              },
-            },
-          },
-        },
-      },
+    })
+    .populate({
+      path: 'user',
+      select: 'id email firstName phone'
+    })
+    .populate({
+      path: 'unit',
+      populate: {
+        path: 'location',
+        select: 'name address'
+      }
     });
   }
 
@@ -525,24 +514,16 @@ export class BookingService {
     const now = new Date();
     const cutoff = new Date(now.getTime() + hoursAhead * 60 * 60 * 1000);
 
-    return prisma.booking.findMany({
-      where: {
-        status: 'ACTIVE',
-        endTime: {
-          gte: now,
-          lte: cutoff,
-        },
+    return Booking.find({
+      status: 'ACTIVE',
+      endTime: {
+        $gte: now,
+        $lte: cutoff,
       },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            phone: true,
-          },
-        },
-      },
+    })
+    .populate({
+      path: 'user',
+      select: 'id email firstName phone'
     });
   }
 }

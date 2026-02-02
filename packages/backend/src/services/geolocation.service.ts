@@ -1,5 +1,6 @@
-import { prisma } from '../config/database.js';
-import { StorageLocation, Prisma } from '@prisma/client';
+import { StorageLocation } from '../models/StorageLocation.js';
+import { StorageUnit } from '../models/StorageUnit.js';
+import mongoose from 'mongoose';
 import { LocationWithDistance } from '../types/index.js';
 import { cache } from '../config/redis.js';
 
@@ -20,7 +21,7 @@ interface LocationWithAvailability extends LocationWithDistance {
 }
 
 export class GeolocationService {
-  // Find locations near a point using PostGIS
+  // Find locations near a point using MongoDB geospatial queries
   async findNearbyLocations(
     options: NearbySearchOptions
   ): Promise<{ locations: LocationWithDistance[]; total: number }> {
@@ -34,64 +35,63 @@ export class GeolocationService {
       return cached;
     }
 
-    // Use raw SQL for PostGIS distance calculation
-    const locations = await prisma.$queryRaw<
-      (StorageLocation & { distance: number })[]
-    >`
-      SELECT
-        id,
-        name,
-        slug,
-        description,
-        address,
-        city,
-        state,
-        country,
-        latitude,
-        longitude,
-        operating_hours as "operatingHours",
-        images,
-        amenities,
-        rating,
-        review_count as "reviewCount",
-        is_active as "isActive",
-        is_featured as "isFeatured",
-        created_at as "createdAt",
-        updated_at as "updatedAt",
-        ST_Distance(
-          ST_MakePoint(longitude, latitude)::geography,
-          ST_MakePoint(${longitude}, ${latitude})::geography
-        ) / 1000 as distance
-      FROM storage_locations
-      WHERE
-        ${includeInactive ? Prisma.sql`TRUE` : Prisma.sql`is_active = true`}
-        AND ST_DWithin(
-          ST_MakePoint(longitude, latitude)::geography,
-          ST_MakePoint(${longitude}, ${latitude})::geography,
-          ${radiusKm * 1000}
-        )
-      ORDER BY distance ASC
-      LIMIT ${limit}
-      OFFSET ${offset}
-    `;
+    // Use MongoDB $geoNear aggregation pipeline
+    const locations = await (StorageLocation.collection as any).aggregate([
+      {
+        $geoNear: {
+          near: { type: 'Point', coordinates: [longitude, latitude] },
+          distanceField: 'distance',
+          spherical: true,
+          maxDistance: radiusKm * 1000,
+          query: includeInactive ? {} : { isActive: true },
+        },
+      },
+      { $skip: offset },
+      { $limit: limit },
+      {
+        $project: {
+          id: '$_id',
+          name: 1,
+          slug: 1,
+          description: 1,
+          address: 1,
+          city: 1,
+          state: 1,
+          country: 1,
+          latitude: 1,
+          longitude: 1,
+          operatingHours: 1,
+          images: 1,
+          amenities: 1,
+          rating: 1,
+          reviewCount: 1,
+          isActive: 1,
+          isFeatured: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          distance: 1,
+        },
+      },
+    ]).toArray();
 
     // Get total count
-    const countResult = await prisma.$queryRaw<[{ count: bigint }]>`
-      SELECT COUNT(*) as count
-      FROM storage_locations
-      WHERE
-        ${includeInactive ? Prisma.sql`TRUE` : Prisma.sql`is_active = true`}
-        AND ST_DWithin(
-          ST_MakePoint(longitude, latitude)::geography,
-          ST_MakePoint(${longitude}, ${latitude})::geography,
-          ${radiusKm * 1000}
-        )
-    `;
+    const countResult = await (StorageLocation.collection as any).aggregate([
+      { $match: includeInactive ? {} : { isActive: true } },
+      {
+        $geoNear: {
+          near: { type: 'Point', coordinates: [longitude, latitude] },
+          distanceField: 'distance',
+          spherical: true,
+          maxDistance: radiusKm * 1000,
+        },
+      },
+      { $count: 'count' },
+    ]).toArray();
 
-    const total = Number(countResult[0]?.count ?? 0);
+    const total = countResult.length > 0 ? countResult[0].count : 0;
 
     const result = {
-      locations: locations.map((loc) => ({
+      locations: locations.map((loc: any) => ({
         id: loc.id,
         name: loc.name,
         slug: loc.slug,
@@ -102,7 +102,7 @@ export class GeolocationService {
         country: loc.country,
         latitude: loc.latitude,
         longitude: loc.longitude,
-        distance: Math.round(loc.distance * 100) / 100, // Round to 2 decimals
+        distance: Math.round(loc.distance / 1000 * 100) / 100, // distance is in meters; convert to km and round
         operatingHours: loc.operatingHours as Record<string, unknown>,
         images: loc.images as string[],
         amenities: loc.amenities as string[],
@@ -129,33 +129,27 @@ export class GeolocationService {
     // Get availability for each location
     const locationsWithAvailability = await Promise.all(
       locations.map(async (location) => {
-        const units = await prisma.storageUnit.findMany({
-          where: {
-            locationId: location.id,
-            isActive: true,
-          },
-          select: {
-            id: true,
-            status: true,
-            bookings: {
-              where: {
-                status: { in: ['CONFIRMED', 'ACTIVE'] },
-                OR: [
-                  {
-                    startTime: { lte: endTime },
-                    endTime: { gte: startTime },
-                  },
-                ],
+        const units = await StorageUnit.find({
+          locationId: location.id,
+          isActive: true,
+        }).populate({
+          path: 'bookings',
+          match: {
+            status: { $in: ['CONFIRMED', 'ACTIVE'] },
+            $or: [
+              {
+                startTime: { $lte: endTime },
+                endTime: { $gte: startTime },
               },
-              select: { id: true },
-            },
+            ],
           },
+          select: 'id',
         });
 
         const totalUnits = units.length;
         const availableUnits = units.filter(
           (unit) =>
-            unit.status === 'AVAILABLE' && unit.bookings.length === 0
+            (unit as any).status === 'AVAILABLE' && (unit as any).bookings.length === 0
         ).length;
 
         return {
@@ -177,22 +171,18 @@ export class GeolocationService {
     city: string,
     page: number = 1,
     limit: number = 20
-  ): Promise<{ locations: StorageLocation[]; total: number }> {
+  ): Promise<{ locations: any[]; total: number }> {
     const [locations, total] = await Promise.all([
-      prisma.storageLocation.findMany({
-        where: {
-          city: { contains: city, mode: 'insensitive' },
-          isActive: true,
-        },
-        orderBy: { rating: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      prisma.storageLocation.count({
-        where: {
-          city: { contains: city, mode: 'insensitive' },
-          isActive: true,
-        },
+      StorageLocation.find({
+        city: { $regex: city, $options: 'i' },
+        isActive: true,
+      })
+        .sort({ rating: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit),
+      StorageLocation.countDocuments({
+        city: { $regex: city, $options: 'i' },
+        isActive: true,
       }),
     ]);
 
@@ -207,14 +197,12 @@ export class GeolocationService {
       return cached;
     }
 
-    const locations = await prisma.storageLocation.findMany({
-      where: {
-        isActive: true,
-        isFeatured: true,
-      },
-      orderBy: { rating: 'desc' },
-      take: limit,
-    });
+    const locations = await StorageLocation.find({
+      isActive: true,
+      isFeatured: true,
+    })
+      .sort({ rating: -1 })
+      .limit(limit);
 
     await cache.set(cacheKey, locations, CACHE_TTL);
 

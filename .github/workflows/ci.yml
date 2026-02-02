@@ -12,16 +12,12 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      postgres:
-        image: postgis/postgis:16-3.4
-        env:
-          POSTGRES_USER: vaulta
-          POSTGRES_PASSWORD: vaulta_secret
-          POSTGRES_DB: vaulta_test
+      mongodb:
+        image: mongo:6.0
         ports:
-          - 5432:5432
+          - 27017:27017
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "mongo --eval 'db.adminCommand(\"ping\")'"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -59,7 +55,7 @@ jobs:
         run: npm run test -w @vaulta/backend
         env:
           NODE_ENV: test
-          DATABASE_URL: postgresql://vaulta:vaulta_secret@localhost:5432/vaulta_test?schema=public
+          DATABASE_URL: mongodb://localhost:27017/vaulta_test
           REDIS_URL: redis://localhost:6379
           JWT_SECRET: test-secret-key
           JWT_REFRESH_SECRET: test-refresh-secret-key

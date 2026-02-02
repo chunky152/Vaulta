@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BookingStatus } from '@prisma/client';
+import { BookingStatus } from '../models/Booking.js';
 
 // Create booking schema
 export const createBookingSchema = z.object({

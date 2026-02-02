@@ -1,5 +1,9 @@
 import Stripe from 'stripe';
-import { prisma } from '../config/database.js';
+import { Transaction } from '../models/Transaction.js';
+import { Booking } from '../models/Booking.js';
+import { StorageUnit } from '../models/StorageUnit.js';
+import { User } from '../models/User.js';
+import mongoose from 'mongoose';
 import { config } from '../config/index.js';
 import { NotFoundError, ValidationError, AppError } from '../types/index.js';
 import { bookingService } from './booking.service.js';
@@ -7,7 +11,7 @@ import { bookingService } from './booking.service.js';
 // Initialize Stripe
 const stripe = config.stripe.secretKey
   ? new Stripe(config.stripe.secretKey, {
-      apiVersion: '2024-11-20.acacia',
+      apiVersion: '2025-02-24.acacia',
     })
   : null;
 
@@ -35,12 +39,10 @@ export class PaymentService {
     }
 
     // Check if there's already a pending transaction
-    const existingTransaction = await prisma.transaction.findFirst({
-      where: {
-        bookingId,
-        status: 'PENDING',
-        type: 'PAYMENT',
-      },
+    const existingTransaction = await Transaction.findOne({
+      bookingId: new mongoose.Types.ObjectId(bookingId),
+      status: 'PENDING',
+      type: 'PAYMENT',
     });
 
     if (existingTransaction?.stripePaymentIntentId) {
@@ -74,16 +76,14 @@ export class PaymentService {
     });
 
     // Create transaction record
-    await prisma.transaction.create({
-      data: {
-        bookingId,
-        userId,
-        amount: booking.totalPrice,
-        currency: booking.currency,
-        type: 'PAYMENT',
-        status: 'PENDING',
-        stripePaymentIntentId: paymentIntent.id,
-      },
+    await Transaction.create({
+      bookingId: new mongoose.Types.ObjectId(bookingId),
+      userId: new mongoose.Types.ObjectId(userId),
+      amount: booking.totalPrice,
+      currency: booking.currency,
+      type: 'PAYMENT',
+      status: 'PENDING',
+      stripePaymentIntentId: paymentIntent.id,
     });
 
     if (!paymentIntent.client_secret) {
@@ -143,35 +143,43 @@ export class PaymentService {
       return;
     }
 
-    await prisma.$transaction(async (tx) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
       // Update transaction
-      await tx.transaction.updateMany({
-        where: { stripePaymentIntentId: paymentIntent.id },
-        data: {
+      await Transaction.updateMany(
+        { stripePaymentIntentId: paymentIntent.id },
+        {
           status: 'COMPLETED',
           stripeChargeId: paymentIntent.latest_charge as string,
         },
-      });
+        { session }
+      );
 
       // Confirm booking
-      await tx.booking.update({
-        where: { id: bookingId },
-        data: { status: 'CONFIRMED' },
-      });
+      const booking = await Booking.findByIdAndUpdate(
+        bookingId,
+        { status: 'CONFIRMED' },
+        { session, new: true }
+      );
 
       // Update unit status to reserved
-      const booking = await tx.booking.findUnique({
-        where: { id: bookingId },
-        select: { unitId: true },
-      });
-
       if (booking) {
-        await tx.storageUnit.update({
-          where: { id: booking.unitId },
-          data: { status: 'RESERVED' },
-        });
+        await StorageUnit.findByIdAndUpdate(
+          booking.unitId,
+          { status: 'RESERVED' },
+          { session }
+        );
       }
-    });
+
+      await session.commitTransaction();
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      await session.endSession();
+    }
 
     console.log(`Payment succeeded for booking: ${bookingId}`);
   }
@@ -185,13 +193,13 @@ export class PaymentService {
       return;
     }
 
-    await prisma.transaction.updateMany({
-      where: { stripePaymentIntentId: paymentIntent.id },
-      data: {
+    await Transaction.updateMany(
+      { stripePaymentIntentId: paymentIntent.id },
+      {
         status: 'FAILED',
         failureReason: paymentIntent.last_payment_error?.message ?? 'Payment failed',
-      },
-    });
+      }
+    );
 
     console.log(`Payment failed for booking: ${bookingId}`);
   }
@@ -199,8 +207,8 @@ export class PaymentService {
   // Handle refund
   private async handleRefund(charge: Stripe.Charge): Promise<void> {
     // Find the original transaction
-    const transaction = await prisma.transaction.findFirst({
-      where: { stripeChargeId: charge.id },
+    const transaction = await Transaction.findOne({
+      stripeChargeId: charge.id,
     });
 
     if (!transaction) {
@@ -209,27 +217,26 @@ export class PaymentService {
     }
 
     // Create refund transaction record
-    await prisma.transaction.create({
-      data: {
-        bookingId: transaction.bookingId,
-        userId: transaction.userId,
-        amount: (charge.amount_refunded ?? 0) / 100,
-        currency: charge.currency.toUpperCase(),
-        type: 'REFUND',
-        status: 'COMPLETED',
-        stripeRefundId: charge.refunds?.data[0]?.id,
-        metadata: {
-          originalTransactionId: transaction.id,
-        },
+    await Transaction.create({
+      bookingId: transaction.bookingId,
+      userId: transaction.userId,
+      amount: (charge.amount_refunded ?? 0) / 100,
+      currency: charge.currency.toUpperCase(),
+      type: 'REFUND',
+      status: 'COMPLETED',
+      stripeRefundId: charge.refunds?.data[0]?.id,
+      metadata: {
+        originalTransactionId: transaction._id,
       },
     });
 
     // Update original transaction status if fully refunded
     if (charge.refunded) {
-      await prisma.transaction.update({
-        where: { id: transaction.id },
-        data: { status: 'REFUNDED' },
-      });
+      await Transaction.findByIdAndUpdate(
+        transaction._id,
+        { status: 'REFUNDED' },
+        { new: true }
+      );
     }
   }
 
@@ -252,12 +259,10 @@ export class PaymentService {
     }
 
     // Find the completed transaction
-    const transaction = await prisma.transaction.findFirst({
-      where: {
-        bookingId,
-        type: 'PAYMENT',
-        status: 'COMPLETED',
-      },
+    const transaction = await Transaction.findOne({
+      bookingId,
+      type: 'PAYMENT',
+      status: 'COMPLETED',
     });
 
     if (!transaction || !transaction.stripePaymentIntentId) {
@@ -335,23 +340,15 @@ export class PaymentService {
     totalPages: number;
   }> {
     const [transactions, total] = await Promise.all([
-      prisma.transaction.findMany({
-        where: { userId },
-        include: {
-          booking: {
-            select: {
-              id: true,
-              bookingNumber: true,
-              startTime: true,
-              endTime: true,
-            },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      prisma.transaction.count({ where: { userId } }),
+      Transaction.find({ userId })
+        .populate({
+          path: 'bookingId',
+          select: 'id bookingNumber startTime endTime',
+        })
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit),
+      Transaction.countDocuments({ userId }),
     ]);
 
     return {

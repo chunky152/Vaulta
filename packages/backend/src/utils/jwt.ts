@@ -29,7 +29,7 @@ function parseDuration(duration: string): number {
 
 export function generateAccessToken(payload: TokenPayload): string {
   const options: SignOptions = {
-    expiresIn: config.jwt.expiresIn,
+    expiresIn: config.jwt.expiresIn as string,
     algorithm: 'HS256',
   };
 
@@ -38,7 +38,7 @@ export function generateAccessToken(payload: TokenPayload): string {
 
 export function generateRefreshToken(payload: TokenPayload): string {
   const options: SignOptions = {
-    expiresIn: config.jwt.refreshExpiresIn,
+    expiresIn: config.jwt.refreshExpiresIn as string,
     algorithm: 'HS256',
     jwtid: uuidv4(),
   };

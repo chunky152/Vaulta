@@ -1,5 +1,7 @@
-import { User, UserRole } from '@prisma/client';
-import { prisma } from '../config/database.js';
+import { User, UserRole } from '../models/User.js';
+import { RefreshToken } from '../models/RefreshToken.js';
+import { LoyaltyTransaction } from '../models/LoyaltyTransaction.js';
+import mongoose from 'mongoose';
 import { cache } from '../config/redis.js';
 import { hashPassword, comparePassword } from '../utils/password.js';
 import {
@@ -22,22 +24,18 @@ import { RegisterInput, LoginInput } from '../validators/auth.validator.js';
 
 export class AuthService {
   // Register a new user
-  async register(input: RegisterInput): Promise<{ user: Omit<User, 'passwordHash'>; tokens: AuthTokens }> {
+  async register(input: RegisterInput): Promise<{ user: any; tokens: AuthTokens }> {
     // Check if email already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email: input.email },
-    });
+    const existingUser = await User.findOne({ email: input.email });
 
     if (existingUser) {
       throw new ConflictError('Email is already registered');
     }
 
     // Check referral code if provided
-    let referredBy: User | null = null;
+    let referredBy: any = null;
     if (input.referralCode) {
-      referredBy = await prisma.user.findUnique({
-        where: { referralCode: input.referralCode },
-      });
+      referredBy = await User.findOne({ referralCode: input.referralCode });
 
       if (!referredBy) {
         throw new ValidationError('Invalid referral code');
@@ -52,70 +50,71 @@ export class AuthService {
     let attempts = 0;
     do {
       referralCode = generateReferralCode();
-      const exists = await prisma.user.findUnique({
-        where: { referralCode },
-      });
+      const exists = await User.findOne({ referralCode });
       if (!exists) break;
       attempts++;
     } while (attempts < 10);
 
     // Create user
-    const user = await prisma.user.create({
-      data: {
-        email: input.email,
-        passwordHash,
-        firstName: input.firstName,
-        lastName: input.lastName,
-        phone: input.phone,
-        referralCode,
-        referredById: referredBy?.id,
-        loyaltyPoints: referredBy ? 100 : 0, // Bonus points for referral
-      },
+    const user = await User.create({
+      email: input.email,
+      passwordHash,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      phone: input.phone,
+      referralCode,
+      referredById: referredBy?._id,
+      loyaltyPoints: referredBy ? 100 : 0, // Bonus points for referral
     });
 
     // Award referral bonus to referrer
     if (referredBy) {
-      await prisma.$transaction([
-        prisma.user.update({
-          where: { id: referredBy.id },
-          data: { loyaltyPoints: { increment: 200 } },
-        }),
-        prisma.loyaltyTransaction.create({
-          data: {
-            userId: referredBy.id,
+      const session = await mongoose.startSession();
+      session.startTransaction();
+      try {
+        await User.updateOne(
+          { _id: referredBy._id },
+          { $inc: { loyaltyPoints: 200 } },
+          { session }
+        );
+        await LoyaltyTransaction.create([
+          {
+            userId: referredBy._id,
             points: 200,
             type: 'EARNED',
             source: 'REFERRAL',
-            referenceId: user.id,
+            referenceId: user._id,
             description: `Referral bonus for inviting ${user.email}`,
           },
-        }),
-        prisma.loyaltyTransaction.create({
-          data: {
-            userId: user.id,
+          {
+            userId: user._id,
             points: 100,
             type: 'BONUS',
             source: 'SIGNUP',
             description: 'Welcome bonus for using referral code',
           },
-        }),
-      ]);
+        ], { session });
+        await session.commitTransaction();
+      } catch (error) {
+        await session.abortTransaction();
+        throw error;
+      } finally {
+        await session.endSession();
+      }
     }
 
     // Generate tokens
     const tokens = generateTokens({
-      userId: user.id,
+      userId: user._id.toString(),
       email: user.email,
       role: user.role,
     });
 
     // Save refresh token
-    await prisma.refreshToken.create({
-      data: {
-        token: tokens.refreshToken,
-        userId: user.id,
-        expiresAt: getRefreshTokenExpiry(),
-      },
+    await RefreshToken.create({
+      token: tokens.refreshToken,
+      userId: user._id,
+      expiresAt: getRefreshTokenExpiry(),
     });
 
     return {
@@ -125,10 +124,8 @@ export class AuthService {
   }
 
   // Login user
-  async login(input: LoginInput): Promise<{ user: Omit<User, 'passwordHash'>; tokens: AuthTokens }> {
-    const user = await prisma.user.findUnique({
-      where: { email: input.email },
-    });
+  async login(input: LoginInput): Promise<{ user: any; tokens: AuthTokens }> {
+    const user = await User.findOne({ email: input.email });
 
     if (!user) {
       throw new AuthenticationError('Invalid email or password');
@@ -146,25 +143,32 @@ export class AuthService {
 
     // Generate tokens
     const tokens = generateTokens({
-      userId: user.id,
+      userId: user._id.toString(),
       email: user.email,
       role: user.role,
     });
 
     // Save refresh token and update last login
-    await prisma.$transaction([
-      prisma.refreshToken.create({
-        data: {
-          token: tokens.refreshToken,
-          userId: user.id,
-          expiresAt: getRefreshTokenExpiry(),
-        },
-      }),
-      prisma.user.update({
-        where: { id: user.id },
-        data: { lastLoginAt: new Date() },
-      }),
-    ]);
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      await RefreshToken.create([{
+        token: tokens.refreshToken,
+        userId: user._id,
+        expiresAt: getRefreshTokenExpiry(),
+      }], { session });
+      await User.updateOne(
+        { _id: user._id },
+        { lastLoginAt: new Date() },
+        { session }
+      );
+      await session.commitTransaction();
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      await session.endSession();
+    }
 
     return {
       user: sanitizeUser(user),
@@ -183,69 +187,64 @@ export class AuthService {
     }
 
     // Check if token exists in database
-    const storedToken = await prisma.refreshToken.findUnique({
-      where: { token: refreshToken },
-      include: { user: true },
-    });
+    const storedToken = await RefreshToken.findOne({ token: refreshToken }).populate('userId');
 
     if (!storedToken) {
       throw new AuthenticationError('Refresh token not found');
     }
 
     if (storedToken.expiresAt < new Date()) {
-      await prisma.refreshToken.delete({
-        where: { id: storedToken.id },
-      });
+      await RefreshToken.deleteOne({ _id: storedToken._id });
       throw new AuthenticationError('Refresh token has expired');
     }
 
-    if (!storedToken.user.isActive) {
+    if (!(storedToken.userId as any).isActive) {
       throw new AuthenticationError('Your account has been suspended');
     }
 
     // Generate new tokens
     const tokens = generateTokens({
-      userId: storedToken.user.id,
-      email: storedToken.user.email,
-      role: storedToken.user.role,
+      userId: (storedToken.userId as any)._id.toString(),
+      email: (storedToken.userId as any).email,
+      role: (storedToken.userId as any).role,
     });
 
     // Rotate refresh token (delete old, create new)
-    await prisma.$transaction([
-      prisma.refreshToken.delete({
-        where: { id: storedToken.id },
-      }),
-      prisma.refreshToken.create({
-        data: {
-          token: tokens.refreshToken,
-          userId: storedToken.user.id,
-          expiresAt: getRefreshTokenExpiry(),
-        },
-      }),
-    ]);
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      await RefreshToken.deleteOne({ _id: storedToken._id }, { session });
+      await RefreshToken.create([{
+        token: tokens.refreshToken,
+        userId: (storedToken.userId as any)._id,
+        expiresAt: getRefreshTokenExpiry(),
+      }], { session });
+      await session.commitTransaction();
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      await session.endSession();
+    }
 
     return tokens;
   }
 
   // Logout user (invalidate refresh token)
   async logout(refreshToken: string): Promise<void> {
-    await prisma.refreshToken.deleteMany({
-      where: { token: refreshToken },
-    });
+    await RefreshToken.deleteMany({ token: refreshToken });
   }
 
   // Logout from all devices
   async logoutAll(userId: string): Promise<void> {
-    await prisma.refreshToken.deleteMany({
-      where: { userId },
-    });
+    const objectId = new mongoose.Types.ObjectId(userId);
+    await RefreshToken.deleteMany({ userId: objectId });
   }
 
   // Get user by ID
-  async getUserById(userId: string): Promise<Omit<User, 'passwordHash'>> {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
+  async getUserById(userId: string): Promise<any> {
+    const objectId = new mongoose.Types.ObjectId(userId);
+    const user = await User.findById(objectId);
 
     if (!user) {
       throw new NotFoundError('User');
@@ -257,12 +256,14 @@ export class AuthService {
   // Update user profile
   async updateProfile(
     userId: string,
-    data: Partial<Pick<User, 'firstName' | 'lastName' | 'phone'>>
-  ): Promise<Omit<User, 'passwordHash'>> {
-    const user = await prisma.user.update({
-      where: { id: userId },
-      data,
-    });
+    data: Partial<Pick<any, 'firstName' | 'lastName' | 'phone'>>
+  ): Promise<any> {
+    const objectId = new mongoose.Types.ObjectId(userId);
+    const user = await User.findByIdAndUpdate(objectId, data, { new: true });
+
+    if (!user) {
+      throw new NotFoundError('User');
+    }
 
     return sanitizeUser(user);
   }
@@ -273,9 +274,8 @@ export class AuthService {
     currentPassword: string,
     newPassword: string
   ): Promise<void> {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
+    const objectId = new mongoose.Types.ObjectId(userId);
+    const user = await User.findById(objectId);
 
     if (!user) {
       throw new NotFoundError('User');
@@ -289,23 +289,28 @@ export class AuthService {
 
     const passwordHash = await hashPassword(newPassword);
 
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: userId },
-        data: { passwordHash },
-      }),
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      await User.updateOne(
+        { _id: objectId },
+        { passwordHash },
+        { session }
+      );
       // Invalidate all refresh tokens
-      prisma.refreshToken.deleteMany({
-        where: { userId },
-      }),
-    ]);
+      await RefreshToken.deleteMany({ userId: objectId }, { session });
+      await session.commitTransaction();
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      await session.endSession();
+    }
   }
 
   // Request password reset
   async requestPasswordReset(email: string): Promise<void> {
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
+    const user = await User.findOne({ email });
 
     if (!user) {
       // Don't reveal if email exists
@@ -319,7 +324,7 @@ export class AuthService {
     // Store in Redis
     await cache.set(
       `password_reset:${resetToken}`,
-      { userId: user.id, email: user.email },
+      { userId: user._id.toString(), email: user.email },
       3600 // 1 hour TTL
     );
 
@@ -338,16 +343,24 @@ export class AuthService {
     }
 
     const passwordHash = await hashPassword(newPassword);
+    const objectId = new mongoose.Types.ObjectId(data.userId);
 
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: data.userId },
-        data: { passwordHash },
-      }),
-      prisma.refreshToken.deleteMany({
-        where: { userId: data.userId },
-      }),
-    ]);
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      await User.updateOne(
+        { _id: objectId },
+        { passwordHash },
+        { session }
+      );
+      await RefreshToken.deleteMany({ userId: objectId }, { session });
+      await session.commitTransaction();
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      await session.endSession();
+    }
 
     // Delete the reset token
     await cache.del(`password_reset:${token}`);
@@ -363,10 +376,11 @@ export class AuthService {
       throw new ValidationError('Invalid or expired verification token');
     }
 
-    await prisma.user.update({
-      where: { id: data.userId },
-      data: { emailVerified: true },
-    });
+    const objectId = new mongoose.Types.ObjectId(data.userId);
+    await User.updateOne(
+      { _id: objectId },
+      { emailVerified: true }
+    );
 
     await cache.del(`email_verification:${token}`);
   }

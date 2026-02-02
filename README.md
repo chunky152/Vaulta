@@ -7,8 +7,8 @@ A modern full-stack platform for location-based storage unit discovery, booking,
 ### Backend
 - **Runtime**: Node.js 20 LTS
 - **Framework**: Express.js
-- **Database**: PostgreSQL 16 with PostGIS
-- **ORM**: Prisma
+- **Database**: MongoDB 6.0
+- **ORM**: Mongoose 7.6+
 - **Cache**: Redis
 - **Authentication**: JWT with refresh tokens
 
@@ -48,8 +48,7 @@ vaulta/
 │           ├── stores/       # Zustand stores
 │           └── types/        # TypeScript types
 ├── scripts/              # Utility scripts
-├── .github/workflows/    # CI/CD pipelines
-└── docker-compose.yml    # Local dev services
+└── .github/workflows/    # CI/CD pipelines
 ```
 
 ## Getting Started
@@ -57,7 +56,6 @@ vaulta/
 ### Prerequisites
 
 - Node.js 20+
-- Docker and Docker Compose
 - npm 9+
 
 ### Quick Start
@@ -73,12 +71,7 @@ vaulta/
    npm install
    ```
 
-3. **Start database services**
-   ```bash
-   docker-compose up -d
-   ```
-
-4. **Configure environment**
+3. **Configure environment**
    ```bash
    # Backend
    cp packages/backend/.env.example packages/backend/.env
@@ -88,12 +81,7 @@ vaulta/
    cp packages/web/.env.example packages/web/.env
    ```
 
-5. **Run database migrations**
-   ```bash
-   npm run db:migrate -w @vaulta/backend
-   ```
-
-6. **Seed the database (optional)**
+5. **Seed the database (optional)**
    ```bash
    npm run db:seed -w @vaulta/backend
    ```
@@ -143,7 +131,7 @@ The API will be available at `http://localhost:3000` and the web app at `http://
 ```env
 NODE_ENV=development
 PORT=3000
-DATABASE_URL=postgresql://user:pass@localhost:5432/vaulta
+DATABASE_URL=mongodb://localhost:27017/vaulta
 REDIS_URL=redis://localhost:6379
 JWT_SECRET=your-jwt-secret
 JWT_REFRESH_SECRET=your-refresh-secret
@@ -168,11 +156,8 @@ npm run dev                    # Start all services
 npm run dev -w @vaulta/backend   # Start backend only
 npm run dev -w @vaulta/web       # Start frontend only
 
-# Database
-npm run db:generate            # Generate Prisma client
-npm run db:migrate             # Run migrations
-npm run db:seed               # Seed database
-npm run db:studio             # Open Prisma Studio
+# Database (MongoDB with Mongoose)
+npm run db:seed                # Seed database with initial data
 
 # Build
 npm run build                 # Build all packages
@@ -184,26 +169,12 @@ npm run test                  # Run all tests
 npm run lint                  # Run linters
 ```
 
-## Docker Services
-
-The `docker-compose.yml` includes:
-
-- **PostgreSQL with PostGIS**: Port 5432
-- **Redis**: Port 6379
-- **pgAdmin**: Port 5050 (admin@vaulta.com / admin)
-
-```bash
-docker-compose up -d     # Start services
-docker-compose down      # Stop services
-docker-compose logs -f   # View logs
-```
-
 ## Deployment
 
 ### Railway (Recommended)
 
 1. Create a Railway project
-2. Add PostgreSQL and Redis services
+2. Add MongoDB and Redis services
 3. Deploy from GitHub
 4. Set environment variables
 

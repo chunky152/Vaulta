@@ -16,14 +16,7 @@
     "start": "npm run start --workspace=@vaulta/backend",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "db:generate": "npm run db:generate --workspace=@vaulta/backend",
-    "db:migrate": "npm run db:migrate --workspace=@vaulta/backend",
-    "db:push": "npm run db:push --workspace=@vaulta/backend",
     "db:seed": "npm run db:seed --workspace=@vaulta/backend",
-    "db:studio": "npm run db:studio --workspace=@vaulta/backend",
-    "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f",
     "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist"
   },
   "keywords": [

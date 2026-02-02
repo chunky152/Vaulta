@@ -1,24 +1,5 @@
--- AirVault Database Initialization Script
--- This script runs when the PostgreSQL container is first created
+-- DEPRECATED: PostgreSQL init script
+-- This project now uses MongoDB. The SQL initialization below is no longer applicable.
+-- If you require MongoDB initialization, create a JS-based init or use Prisma seed scripts.
 
--- Enable PostGIS extension for geospatial queries
-CREATE EXTENSION IF NOT EXISTS postgis;
-CREATE EXTENSION IF NOT EXISTS postgis_topology;
-
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- Enable pg_trgm for text search
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-
--- Create a function for updating timestamps
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
--- Verify extensions are installed
-SELECT PostGIS_Version();
+/* Original PostgreSQL/PostGIS initialization removed */

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { UnitSize, UnitStatus } from '@prisma/client';
+import { UnitSize, UnitStatus } from '../models/StorageUnit.js';
 
 // Dimensions schema
 const dimensionsSchema = z.object({

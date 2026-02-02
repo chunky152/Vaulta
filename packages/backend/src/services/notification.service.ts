@@ -1,8 +1,15 @@
 import sgMail from '@sendgrid/mail';
 import twilio from 'twilio';
-import { prisma } from '../config/database.js';
+import { Notification } from '../models/Notification.js';
+import { NotificationPreference } from '../models/NotificationPreference.js';
+import { Booking } from '../models/Booking.js';
+import { User } from '../models/User.js';
+import mongoose from 'mongoose';
 import { config } from '../config/index.js';
-import { NotificationType, NotificationCategory } from '@prisma/client';
+
+// Notification enums
+type NotificationType = 'EMAIL' | 'SMS' | 'PUSH';
+type NotificationCategory = 'BOOKING' | 'PAYMENT' | 'REMINDER' | 'PROMO' | 'SYSTEM';
 
 // Initialize SendGrid
 if (config.sendgrid.apiKey) {
@@ -49,7 +56,7 @@ export class NotificationService {
     }
 
     try {
-      const msg: sgMail.MailDataRequired = {
+      const msg: any = {
         to: options.to,
         from: {
           email: config.sendgrid.fromEmail,
@@ -99,25 +106,20 @@ export class NotificationService {
   // Create and send a notification
   async createNotification(data: NotificationData): Promise<void> {
     // Create notification record
-    const notification = await prisma.notification.create({
-      data: {
-        userId: data.userId,
-        type: data.type,
-        category: data.category,
-        title: data.title,
-        message: data.message,
-        data: data.data ?? {},
-      },
+    const notification = await Notification.create({
+      userId: data.userId,
+      type: data.type,
+      category: data.category,
+      title: data.title,
+      message: data.message,
+      data: data.data ?? {},
     });
 
     // Get user and preferences
-    const user = await prisma.user.findUnique({
-      where: { id: data.userId },
-      select: { email: true, phone: true },
-    });
+    const user = await User.findById(data.userId).select('email phone');
 
-    const preferences = await prisma.notificationPreference.findUnique({
-      where: { userId: data.userId },
+    const preferences = await NotificationPreference.findOne({
+      userId: data.userId,
     });
 
     if (!user) return;
@@ -125,22 +127,22 @@ export class NotificationService {
     // Send based on type and preferences
     let sent = false;
 
-    if (data.type === 'EMAIL' && user.email) {
+    if (data.type === 'EMAIL' && (user as any).email) {
       const shouldSend = this.checkPreference(preferences, 'email', data.category);
       if (shouldSend) {
         sent = await this.sendEmail({
-          to: user.email,
+          to: (user as any).email,
           subject: data.title,
           text: data.message,
         });
       }
     }
 
-    if (data.type === 'SMS' && user.phone) {
+    if (data.type === 'SMS' && (user as any).phone) {
       const shouldSend = this.checkPreference(preferences, 'sms', data.category);
       if (shouldSend) {
         sent = await this.sendSMS({
-          to: user.phone,
+          to: (user as any).phone,
           message: `${data.title}: ${data.message}`,
         });
       }
@@ -148,23 +150,23 @@ export class NotificationService {
 
     // Update sent timestamp if successfully sent
     if (sent) {
-      await prisma.notification.update({
-        where: { id: notification.id },
-        data: { sentAt: new Date() },
-      });
+      await Notification.updateOne(
+        { _id: notification._id },
+        { sentAt: new Date() }
+      );
     }
   }
 
   // Check notification preferences
   private checkPreference(
-    preferences: { [key: string]: boolean } | null,
+    preferences: any,
     channel: 'email' | 'sms' | 'push',
     category: NotificationCategory
   ): boolean {
     if (!preferences) return true; // Default to true if no preferences set
 
     const key = `${channel}${category.charAt(0) + category.slice(1).toLowerCase()}`;
-    return preferences[key] !== false;
+    return (preferences as any)[key] !== false;
   }
 
   // Send booking confirmation
@@ -172,29 +174,29 @@ export class NotificationService {
     bookingId: string,
     userId: string
   ): Promise<void> {
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-      include: {
-        unit: {
-          include: {
-            location: true,
-          },
-        },
-        user: {
-          select: { firstName: true, email: true },
-        },
+    const booking = await Booking.findById(bookingId).populate({
+      path: 'unitId',
+      populate: {
+        path: 'locationId',
       },
+    }).populate({
+      path: 'userId',
+      select: 'firstName email',
     });
 
     if (!booking) return;
 
-    const message = `Your booking at ${booking.unit.location.name} has been confirmed.
-Booking Number: ${booking.bookingNumber}
-Location: ${booking.unit.location.address}, ${booking.unit.location.city}
-Unit: ${booking.unit.unitNumber}
-Start: ${booking.startTime.toLocaleString()}
-End: ${booking.endTime.toLocaleString()}
-Access Code: ${booking.accessCode}`;
+    const unit = (booking as any).unitId;
+    const location = unit?.locationId;
+    const bookingUser = (booking as any).userId;
+
+    const message = `Your booking at ${location?.name} has been confirmed.
+Booking Number: ${(booking as any).bookingNumber}
+Location: ${location?.address}, ${location?.city}
+Unit: ${unit?.unitNumber}
+Start: ${(booking as any).startTime.toLocaleString()}
+End: ${(booking as any).endTime.toLocaleString()}
+Access Code: ${(booking as any).accessCode}`;
 
     await this.createNotification({
       userId,
@@ -202,71 +204,69 @@ Access Code: ${booking.accessCode}`;
       category: 'BOOKING',
       title: 'Booking Confirmed',
       message,
-      data: { bookingId, bookingNumber: booking.bookingNumber },
+      data: { bookingId, bookingNumber: (booking as any).bookingNumber },
     });
   }
 
   // Send booking reminder
   async sendBookingReminder(bookingId: string): Promise<void> {
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-      include: {
-        unit: {
-          include: {
-            location: true,
-          },
-        },
-        user: {
-          select: { id: true, firstName: true },
-        },
+    const booking = await Booking.findById(bookingId).populate({
+      path: 'unitId',
+      populate: {
+        path: 'locationId',
       },
+    }).populate({
+      path: 'userId',
+      select: 'id firstName',
     });
 
     if (!booking) return;
 
+    const unit = (booking as any).unitId;
+    const location = unit?.locationId;
+    const bookingUser = (booking as any).userId;
+
     const message = `Reminder: Your storage booking starts in 1 hour.
-Location: ${booking.unit.location.name}
-Address: ${booking.unit.location.address}
-Unit: ${booking.unit.unitNumber}
-Access Code: ${booking.accessCode}`;
+Location: ${location?.name}
+Address: ${location?.address}
+Unit: ${unit?.unitNumber}
+Access Code: ${(booking as any).accessCode}`;
 
     await this.createNotification({
-      userId: booking.user.id,
+      userId: bookingUser?.id || '',
       type: 'SMS',
       category: 'REMINDER',
       title: 'Booking Starts Soon',
       message,
-      data: { bookingId, bookingNumber: booking.bookingNumber },
+      data: { bookingId, bookingNumber: (booking as any).bookingNumber },
     });
   }
 
   // Send checkout reminder
   async sendCheckoutReminder(bookingId: string): Promise<void> {
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-      include: {
-        unit: {
-          include: {
-            location: true,
-          },
-        },
-        user: {
-          select: { id: true },
-        },
+    const booking = await Booking.findById(bookingId).populate({
+      path: 'unitId',
+      populate: {
+        path: 'locationId',
       },
+    }).populate({
+      path: 'userId',
+      select: 'id',
     });
 
     if (!booking) return;
 
-    const message = `Your storage booking ends in 2 hours. Please ensure you retrieve your belongings before ${booking.endTime.toLocaleString()}.`;
+    const bookingUser = (booking as any).userId;
+
+    const message = `Your storage booking ends in 2 hours. Please ensure you retrieve your belongings before ${(booking as any).endTime.toLocaleString()}.`;
 
     await this.createNotification({
-      userId: booking.user.id,
+      userId: bookingUser?.id || '',
       type: 'SMS',
       category: 'REMINDER',
       title: 'Checkout Reminder',
       message,
-      data: { bookingId, bookingNumber: booking.bookingNumber },
+      data: { bookingId, bookingNumber: (booking as any).bookingNumber },
     });
   }
 
@@ -325,15 +325,14 @@ Access Code: ${booking.accessCode}`;
     }
 
     const [notifications, total, unreadCount] = await Promise.all([
-      prisma.notification.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      prisma.notification.count({ where }),
-      prisma.notification.count({
-        where: { userId, readAt: null },
+      Notification.find(where)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit),
+      Notification.countDocuments(where),
+      Notification.countDocuments({
+        userId,
+        readAt: null,
       }),
     ]);
 
@@ -342,18 +341,18 @@ Access Code: ${booking.accessCode}`;
 
   // Mark notification as read
   async markAsRead(notificationId: string, userId: string): Promise<void> {
-    await prisma.notification.updateMany({
-      where: { id: notificationId, userId },
-      data: { readAt: new Date() },
-    });
+    await Notification.updateMany(
+      { _id: notificationId, userId },
+      { readAt: new Date() }
+    );
   }
 
   // Mark all notifications as read
   async markAllAsRead(userId: string): Promise<void> {
-    await prisma.notification.updateMany({
-      where: { userId, readAt: null },
-      data: { readAt: new Date() },
-    });
+    await Notification.updateMany(
+      { userId, readAt: null },
+      { readAt: new Date() }
+    );
   }
 
   // Delete notification
@@ -361,8 +360,9 @@ Access Code: ${booking.accessCode}`;
     notificationId: string,
     userId: string
   ): Promise<void> {
-    await prisma.notification.deleteMany({
-      where: { id: notificationId, userId },
+    await Notification.deleteMany({
+      _id: notificationId,
+      userId,
     });
   }
 
@@ -384,11 +384,19 @@ Access Code: ${booking.accessCode}`;
       pushPromo: boolean;
     }>
   ): Promise<void> {
-    await prisma.notificationPreference.upsert({
-      where: { userId },
-      create: { userId, ...preferences },
-      update: preferences,
-    });
+    const existing = await NotificationPreference.findOne({ userId });
+    
+    if (existing) {
+      await NotificationPreference.updateOne(
+        { userId },
+        preferences
+      );
+    } else {
+      await NotificationPreference.create({
+        userId,
+        ...preferences,
+      });
+    }
   }
 }
 

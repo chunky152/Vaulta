@@ -1,7 +1,10 @@
 import { Response } from 'express';
 import { AuthenticatedRequest, ApiResponse } from '../types/index.js';
-import { prisma } from '../config/database.js';
-import { BookingStatus, UserRole } from '@prisma/client';
+import { Booking, BookingStatus } from '../models/Booking.js';
+import { User, UserRole } from '../models/User.js';
+import { StorageUnit } from '../models/StorageUnit.js';
+import { StorageLocation } from '../models/StorageLocation.js';
+import { Transaction } from '../models/Transaction.js';
 
 export class AdminController {
   // Get dashboard stats
@@ -16,44 +19,64 @@ export class AdminController {
       totalBookings,
       activeBookings,
       completedBookings,
-      totalRevenue,
-      revenueThisMonth,
-      totalLocations,
       totalUnits,
       occupiedUnits,
+      totalLocations,
     ] = await Promise.all([
-      prisma.user.count({ where: { role: 'CUSTOMER' } }),
-      prisma.user.count({
-        where: {
-          role: 'CUSTOMER',
-          createdAt: { gte: startOfMonth },
-        },
+      User.countDocuments({ role: 'CUSTOMER' }),
+      User.countDocuments({
+        role: 'CUSTOMER',
+        createdAt: { $gte: startOfMonth },
       }),
-      prisma.booking.count(),
-      prisma.booking.count({
-        where: { status: 'ACTIVE' },
+      Booking.countDocuments(),
+      Booking.countDocuments({
+        status: 'ACTIVE',
       }),
-      prisma.booking.count({
-        where: { status: 'COMPLETED' },
+      Booking.countDocuments({
+        status: 'COMPLETED',
       }),
-      prisma.transaction.aggregate({
-        where: { type: 'PAYMENT', status: 'COMPLETED' },
-        _sum: { amount: true },
+      StorageUnit.countDocuments({ isActive: true }),
+      StorageUnit.countDocuments({
+        isActive: true,
+        status: 'OCCUPIED',
       }),
-      prisma.transaction.aggregate({
-        where: {
+      StorageLocation.countDocuments({ isActive: true }),
+    ]);
+
+    // Get revenue aggregation
+    const revenueData = await Transaction.aggregate([
+      {
+        $match: {
           type: 'PAYMENT',
           status: 'COMPLETED',
-          createdAt: { gte: startOfMonth },
         },
-        _sum: { amount: true },
-      }),
-      prisma.storageLocation.count({ where: { isActive: true } }),
-      prisma.storageUnit.count({ where: { isActive: true } }),
-      prisma.storageUnit.count({
-        where: { isActive: true, status: 'OCCUPIED' },
-      }),
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$amount' },
+        },
+      },
     ]);
+
+    const revenueThisMonthData = await Transaction.aggregate([
+      {
+        $match: {
+          type: 'PAYMENT',
+          status: 'COMPLETED',
+          createdAt: { $gte: startOfMonth },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$amount' },
+        },
+      },
+    ]);
+
+    const totalRevenue = revenueData.length > 0 ? revenueData[0].total : 0;
+    const revenueThisMonth = revenueThisMonthData.length > 0 ? revenueThisMonthData[0].total : 0;
 
     const occupancyRate = totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0;
 
@@ -70,8 +93,8 @@ export class AdminController {
           completed: completedBookings,
         },
         revenue: {
-          total: totalRevenue._sum.amount ?? 0,
-          thisMonth: revenueThisMonth._sum.amount ?? 0,
+          total: totalRevenue,
+          thisMonth: revenueThisMonth,
         },
         locations: {
           total: totalLocations,
@@ -97,38 +120,26 @@ export class AdminController {
 
     const where: any = {};
     if (status) where.status = status;
-    if (locationId) where.unit = { locationId };
+    if (locationId) where.unitId = { $in: [new (Booking as any).schema.types.ObjectId(locationId)] };
     if (userId) where.userId = userId;
 
     const [bookings, total] = await Promise.all([
-      prisma.booking.findMany({
-        where,
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              firstName: true,
-              lastName: true,
-            },
+      Booking.find(where)
+        .populate({
+          path: 'userId',
+          select: 'id email firstName lastName',
+        })
+        .populate({
+          path: 'unitId',
+          populate: {
+            path: 'locationId',
+            select: 'id name city',
           },
-          unit: {
-            include: {
-              location: {
-                select: {
-                  id: true,
-                  name: true,
-                  city: true,
-                },
-              },
-            },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      prisma.booking.count({ where }),
+        })
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit),
+      Booking.countDocuments(where),
     ]);
 
     const response: ApiResponse = {
@@ -157,44 +168,39 @@ export class AdminController {
     const where: any = {};
     if (role) where.role = role;
     if (search) {
-      where.OR = [
-        { email: { contains: search, mode: 'insensitive' } },
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
+      where.$or = [
+        { email: { $regex: search, $options: 'i' } },
+        { firstName: { $regex: search, $options: 'i' } },
+        { lastName: { $regex: search, $options: 'i' } },
       ];
     }
 
     const [users, total] = await Promise.all([
-      prisma.user.findMany({
-        where,
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          phone: true,
-          role: true,
-          emailVerified: true,
-          phoneVerified: true,
-          loyaltyPoints: true,
-          isActive: true,
-          lastLoginAt: true,
-          createdAt: true,
-          _count: {
-            select: { bookings: true },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      prisma.user.count({ where }),
+      User.find(where)
+        .select('id email firstName lastName phone role emailVerified phoneVerified loyaltyPoints isActive lastLoginAt createdAt')
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit),
+      User.countDocuments(where),
     ]);
+
+    // Add booking count for each user
+    const usersWithCount = await Promise.all(
+      users.map(async (user) => {
+        const bookingCount = await Booking.countDocuments({ userId: user._id });
+        return {
+          ...user.toObject(),
+          _count: {
+            bookings: bookingCount,
+          },
+        };
+      })
+    );
 
     const response: ApiResponse = {
       success: true,
       data: {
-        users,
+        users: usersWithCount,
         pagination: {
           page,
           limit,
@@ -216,18 +222,11 @@ export class AdminController {
     if (isActive !== undefined) updateData.isActive = isActive;
     if (role) updateData.role = role;
 
-    const user = await prisma.user.update({
-      where: { id: id as string },
-      data: updateData,
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        isActive: true,
-      },
-    });
+    const user = await User.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    ).select('id email firstName lastName role isActive');
 
     const response: ApiResponse = {
       success: true,
@@ -240,38 +239,30 @@ export class AdminController {
 
   // Get occupancy data
   async getOccupancyData(req: AuthenticatedRequest, res: Response): Promise<void> {
-    const locations = await prisma.storageLocation.findMany({
-      where: { isActive: true },
-      select: {
-        id: true,
-        name: true,
-        city: true,
-        latitude: true,
-        longitude: true,
-        units: {
-          where: { isActive: true },
-          select: {
-            status: true,
-          },
-        },
-      },
+    const locations = await StorageLocation.find({
+      isActive: true,
+    }).populate({
+      path: 'units',
+      match: { isActive: true },
+      select: 'status',
     });
 
     const occupancyData = locations.map((location) => {
-      const totalUnits = location.units.length;
-      const occupiedUnits = location.units.filter(
-        (u) => u.status === 'OCCUPIED'
+      const units = (location as any).units || [];
+      const totalUnits = units.length;
+      const occupiedUnits = units.filter(
+        (u: any) => u.status === 'OCCUPIED'
       ).length;
-      const availableUnits = location.units.filter(
-        (u) => u.status === 'AVAILABLE'
+      const availableUnits = units.filter(
+        (u: any) => u.status === 'AVAILABLE'
       ).length;
 
       return {
-        id: location.id,
-        name: location.name,
-        city: location.city,
-        latitude: location.latitude,
-        longitude: location.longitude,
+        id: location._id,
+        name: (location as any).name,
+        city: (location as any).city,
+        latitude: (location as any).latitude,
+        longitude: (location as any).longitude,
         totalUnits,
         occupiedUnits,
         availableUnits,
@@ -293,63 +284,97 @@ export class AdminController {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
-    // Daily bookings
-    const bookings = await prisma.booking.groupBy({
-      by: ['createdAt'],
-      where: {
-        createdAt: { gte: startDate },
-      },
-      _count: true,
-    });
-
-    // Daily revenue
-    const revenue = await prisma.transaction.groupBy({
-      by: ['createdAt'],
-      where: {
-        type: 'PAYMENT',
-        status: 'COMPLETED',
-        createdAt: { gte: startDate },
-      },
-      _sum: { amount: true },
-    });
-
-    // Popular locations
-    const popularLocations = await prisma.booking.groupBy({
-      by: ['unitId'],
-      where: {
-        createdAt: { gte: startDate },
-      },
-      _count: true,
-      orderBy: { _count: { unitId: 'desc' } },
-      take: 10,
-    });
-
-    // Get location details for popular bookings
-    const unitIds = popularLocations.map((p) => p.unitId);
-    const units = await prisma.storageUnit.findMany({
-      where: { id: { in: unitIds } },
-      include: {
-        location: {
-          select: { id: true, name: true, city: true },
+    // Daily bookings aggregation
+    const bookings = await Booking.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate },
         },
       },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-%d', date: '$createdAt' },
+          },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+    ]);
+
+    // Daily revenue aggregation
+    const revenue = await Transaction.aggregate([
+      {
+        $match: {
+          type: 'PAYMENT',
+          status: 'COMPLETED',
+          createdAt: { $gte: startDate },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-%d', date: '$createdAt' },
+          },
+          total: { $sum: '$amount' },
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+    ]);
+
+    // Popular locations
+    const popularLocations = await Booking.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate },
+        },
+      },
+      {
+        $group: {
+          _id: '$unitId',
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { count: -1 },
+      },
+      {
+        $limit: 10,
+      },
+    ]);
+
+    // Get unit and location details
+    const unitIds = popularLocations.map((p: any) => p._id);
+    const units = await StorageUnit.find({
+      _id: { $in: unitIds },
+    }).populate({
+      path: 'locationId',
+      select: 'id name city',
     });
 
-    const popularLocationsData = popularLocations.map((p) => {
-      const unit = units.find((u) => u.id === p.unitId);
+    const popularLocationsData = popularLocations.map((p: any) => {
+      const unit = units.find((u: any) => u._id.toString() === p._id.toString());
       return {
-        locationId: unit?.location?.id,
-        locationName: unit?.location?.name,
-        city: unit?.location?.city,
-        bookingCount: p._count,
+        locationId: (unit as any)?.locationId?._id,
+        locationName: (unit as any)?.locationId?.name,
+        city: (unit as any)?.locationId?.city,
+        bookingCount: p.count,
       };
     });
 
     // Booking status distribution
-    const statusDistribution = await prisma.booking.groupBy({
-      by: ['status'],
-      _count: true,
-    });
+    const statusDistribution = await Booking.aggregate([
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 },
+        },
+      },
+    ]);
 
     const response: ApiResponse = {
       success: true,
@@ -383,40 +408,47 @@ export class AdminController {
     if (status) where.status = status;
     if (startDate || endDate) {
       where.createdAt = {};
-      if (startDate) where.createdAt.gte = startDate;
-      if (endDate) where.createdAt.lte = endDate;
+      if (startDate) where.createdAt.$gte = startDate;
+      if (endDate) where.createdAt.$lte = endDate;
     }
 
-    const [transactions, total, summary] = await Promise.all([
-      prisma.transaction.findMany({
-        where,
-        include: {
-          user: {
-            select: { email: true, firstName: true, lastName: true },
-          },
-          booking: {
-            select: { bookingNumber: true },
+    const [transactions, total, summaryData] = await Promise.all([
+      Transaction.find(where)
+        .populate({
+          path: 'userId',
+          select: 'email firstName lastName',
+        })
+        .populate({
+          path: 'bookingId',
+          select: 'bookingNumber',
+        })
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit),
+      Transaction.countDocuments(where),
+      Transaction.aggregate([
+        {
+          $match: { ...where, type: 'PAYMENT', status: 'COMPLETED' },
+        },
+        {
+          $group: {
+            _id: null,
+            totalRevenue: { $sum: '$amount' },
+            count: { $sum: 1 },
           },
         },
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      prisma.transaction.count({ where }),
-      prisma.transaction.aggregate({
-        where: { ...where, type: 'PAYMENT', status: 'COMPLETED' },
-        _sum: { amount: true },
-        _count: true,
-      }),
+      ]),
     ]);
+
+    const summary = summaryData.length > 0 ? summaryData[0] : { totalRevenue: 0, count: 0 };
 
     const response: ApiResponse = {
       success: true,
       data: {
         transactions,
         summary: {
-          totalRevenue: summary._sum.amount ?? 0,
-          transactionCount: summary._count,
+          totalRevenue: summary.totalRevenue,
+          transactionCount: summary.count,
         },
         pagination: {
           page,

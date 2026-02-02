@@ -1,5 +1,5 @@
 import { Request } from 'express';
-import { User, UserRole } from '@prisma/client';
+import { UserRole } from '../models/User.js';
 
 // ============================================
 // Express Extended Types

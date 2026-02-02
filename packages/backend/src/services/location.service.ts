@@ -1,5 +1,7 @@
-import { prisma } from '../config/database.js';
-import { StorageLocation, Prisma } from '@prisma/client';
+import { StorageLocation } from '../models/StorageLocation.js';
+import { StorageUnit } from '../models/StorageUnit.js';
+import { Booking } from '../models/Booking.js';
+import mongoose from 'mongoose';
 import { cache } from '../config/redis.js';
 import { NotFoundError, ConflictError } from '../types/index.js';
 import { generateSlug } from '../utils/helpers.js';
@@ -13,32 +15,26 @@ const CACHE_TTL = 300; // 5 minutes
 
 export class LocationService {
   // Create a new storage location
-  async createLocation(input: CreateLocationInput): Promise<StorageLocation> {
+  async createLocation(input: CreateLocationInput): Promise<any> {
     // Generate slug
     let slug = generateSlug(input.name);
 
     // Check if slug exists and make unique if needed
-    let slugExists = await prisma.storageLocation.findUnique({
-      where: { slug },
-    });
+    let slugExists = await StorageLocation.findOne({ slug });
 
     let counter = 1;
     while (slugExists) {
       slug = `${generateSlug(input.name)}-${counter}`;
-      slugExists = await prisma.storageLocation.findUnique({
-        where: { slug },
-      });
+      slugExists = await StorageLocation.findOne({ slug });
       counter++;
     }
 
-    const location = await prisma.storageLocation.create({
-      data: {
-        ...input,
-        slug,
-        operatingHours: input.operatingHours ?? {},
-        images: input.images ?? [],
-        amenities: input.amenities ?? [],
-      },
+    const location = await StorageLocation.create({
+      ...input,
+      slug,
+      operatingHours: input.operatingHours ?? {},
+      images: input.images ?? [],
+      amenities: input.amenities ?? [],
     });
 
     // Invalidate cache
@@ -48,16 +44,14 @@ export class LocationService {
   }
 
   // Get location by ID
-  async getLocationById(id: string): Promise<StorageLocation> {
+  async getLocationById(id: string): Promise<any> {
     const cacheKey = `location:${id}`;
-    const cached = await cache.get<StorageLocation>(cacheKey);
+    const cached = await cache.get<any>(cacheKey);
     if (cached) {
       return cached;
     }
 
-    const location = await prisma.storageLocation.findUnique({
-      where: { id },
-    });
+    const location = await StorageLocation.findById(id);
 
     if (!location) {
       throw new NotFoundError('Storage location');
@@ -69,16 +63,14 @@ export class LocationService {
   }
 
   // Get location by slug
-  async getLocationBySlug(slug: string): Promise<StorageLocation> {
+  async getLocationBySlug(slug: string): Promise<any> {
     const cacheKey = `location:slug:${slug}`;
-    const cached = await cache.get<StorageLocation>(cacheKey);
+    const cached = await cache.get<any>(cacheKey);
     if (cached) {
       return cached;
     }
 
-    const location = await prisma.storageLocation.findUnique({
-      where: { slug },
-    });
+    const location = await StorageLocation.findOne({ slug });
 
     if (!location) {
       throw new NotFoundError('Storage location');
@@ -92,7 +84,7 @@ export class LocationService {
   // List locations with filters
   async listLocations(
     input: LocationListInput
-  ): Promise<{ locations: StorageLocation[]; total: number; totalPages: number }> {
+  ): Promise<{ locations: any[]; total: number; totalPages: number }> {
     const {
       city,
       country,
@@ -105,40 +97,38 @@ export class LocationService {
       limit,
     } = input;
 
-    const where: Prisma.StorageLocationWhereInput = {};
+    const query: any = {};
 
     if (city) {
-      where.city = { contains: city, mode: 'insensitive' };
+      query.city = { $regex: city, $options: 'i' };
     }
 
     if (country) {
-      where.country = { contains: country, mode: 'insensitive' };
+      query.country = { $regex: country, $options: 'i' };
     }
 
     if (isActive !== undefined) {
-      where.isActive = isActive;
+      query.isActive = isActive;
     }
 
     if (isFeatured !== undefined) {
-      where.isFeatured = isFeatured;
+      query.isFeatured = isFeatured;
     }
 
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { address: { contains: search, mode: 'insensitive' } },
-        { city: { contains: search, mode: 'insensitive' } },
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { address: { $regex: search, $options: 'i' } },
+        { city: { $regex: search, $options: 'i' } },
       ];
     }
 
     const [locations, total] = await Promise.all([
-      prisma.storageLocation.findMany({
-        where,
-        orderBy: { [sortBy]: sortOrder },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      prisma.storageLocation.count({ where }),
+      StorageLocation.find(query)
+        .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
+        .skip((page - 1) * limit)
+        .limit(limit),
+      StorageLocation.countDocuments(query),
     ]);
 
     return {
@@ -152,11 +142,9 @@ export class LocationService {
   async updateLocation(
     id: string,
     input: UpdateLocationInput
-  ): Promise<StorageLocation> {
+  ): Promise<any> {
     // Check if location exists
-    const existing = await prisma.storageLocation.findUnique({
-      where: { id },
-    });
+    const existing = await StorageLocation.findById(id);
 
     if (!existing) {
       throw new NotFoundError('Storage location');
@@ -167,8 +155,9 @@ export class LocationService {
     if (input.name && input.name !== existing.name) {
       slug = generateSlug(input.name);
 
-      const slugExists = await prisma.storageLocation.findFirst({
-        where: { slug, id: { not: id } },
+      const slugExists = await StorageLocation.findOne({ 
+        slug, 
+        _id: { $ne: id } 
       });
 
       if (slugExists) {
@@ -176,13 +165,14 @@ export class LocationService {
       }
     }
 
-    const location = await prisma.storageLocation.update({
-      where: { id },
-      data: {
+    const location = await StorageLocation.findByIdAndUpdate(
+      id,
+      {
         ...input,
         slug,
       },
-    });
+      { new: true }
+    );
 
     // Invalidate cache
     await this.invalidateCache(id);
@@ -193,18 +183,12 @@ export class LocationService {
 
   // Delete location (soft delete by setting isActive to false)
   async deleteLocation(id: string): Promise<void> {
-    const location = await prisma.storageLocation.findUnique({
-      where: { id },
-      include: {
-        units: {
-          where: {
-            bookings: {
-              some: {
-                status: { in: ['CONFIRMED', 'ACTIVE'] },
-              },
-            },
-          },
-        },
+    const location = await StorageLocation.findById(id).populate({
+      path: 'units',
+      match: { isActive: true },
+      populate: {
+        path: 'bookings',
+        match: { status: { $in: ['CONFIRMED', 'ACTIVE'] } },
       },
     });
 
@@ -212,49 +196,29 @@ export class LocationService {
       throw new NotFoundError('Storage location');
     }
 
-    if (location.units.length > 0) {
+    const units = (location as any).units || [];
+    if (units.length > 0) {
       throw new ConflictError(
         'Cannot delete location with active bookings'
       );
     }
 
-    await prisma.storageLocation.update({
-      where: { id },
-      data: { isActive: false },
-    });
+    await StorageLocation.findByIdAndUpdate(
+      id,
+      { isActive: false },
+      { new: true }
+    );
 
     await this.invalidateCache(id);
   }
 
   // Get location with units
-  async getLocationWithUnits(id: string): Promise<
-    StorageLocation & {
-      units: {
-        id: string;
-        unitNumber: string;
-        size: string;
-        status: string;
-        basePriceHourly: number;
-        basePriceDaily: number;
-      }[];
-    }
-  > {
-    const location = await prisma.storageLocation.findUnique({
-      where: { id },
-      include: {
-        units: {
-          where: { isActive: true },
-          select: {
-            id: true,
-            unitNumber: true,
-            size: true,
-            status: true,
-            basePriceHourly: true,
-            basePriceDaily: true,
-          },
-          orderBy: { unitNumber: 'asc' },
-        },
-      },
+  async getLocationWithUnits(id: string): Promise<any> {
+    const location = await StorageLocation.findById(id).populate({
+      path: 'units',
+      match: { isActive: true },
+      select: 'id unitNumber size status basePriceHourly basePriceDaily',
+      options: { sort: { unitNumber: 1 } },
     });
 
     if (!location) {
@@ -275,48 +239,69 @@ export class LocationService {
     activeBookings: number;
     totalRevenue: number;
   }> {
-    const location = await prisma.storageLocation.findUnique({
-      where: { id },
-    });
+    const locationId = new mongoose.Types.ObjectId(id);
+    
+    const location = await StorageLocation.findById(id);
 
     if (!location) {
       throw new NotFoundError('Storage location');
     }
 
-    const [unitStats, bookingStats] = await Promise.all([
-      prisma.storageUnit.groupBy({
-        by: ['status'],
-        where: { locationId: id, isActive: true },
-        _count: true,
-      }),
-      prisma.booking.aggregate({
-        where: {
-          unit: { locationId: id },
+    // Get unit stats by status
+    const unitStats = await StorageUnit.aggregate([
+      { $match: { locationId, isActive: true } },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 },
         },
-        _count: true,
-        _sum: { totalPrice: true },
-      }),
+      },
     ]);
 
-    const activeBookings = await prisma.booking.count({
-      where: {
-        unit: { locationId: id },
-        status: 'ACTIVE',
+    // Get booking stats
+    const bookingStats = await Booking.aggregate([
+      {
+        $lookup: {
+          from: 'storageunits',
+          localField: 'unitId',
+          foreignField: '_id',
+          as: 'unit',
+        },
+      },
+      {
+        $match: {
+          'unit.locationId': locationId,
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalBookings: { $sum: 1 },
+          totalRevenue: { $sum: '$totalPrice' },
+        },
+      },
+    ]);
+
+    // Get active bookings count
+    const activeBookingCount = await Booking.countDocuments({
+      status: 'ACTIVE',
+      unitId: {
+        $in: await StorageUnit.find({ locationId }).select('_id'),
       },
     });
 
-    const statusCounts = unitStats.reduce(
-      (acc, stat) => {
-        acc[stat.status] = stat._count;
-        return acc;
-      },
-      {} as Record<string, number>
-    );
+    // Build status counts
+    const statusCounts: Record<string, number> = {};
+    unitStats.forEach((stat: any) => {
+      statusCounts[stat._id] = stat.count;
+    });
 
-    const totalUnits = Object.values(statusCounts).reduce((a, b) => a + b, 0);
+    const totalUnits = Object.values(statusCounts).reduce((a: number, b: number) => a + b, 0);
     const availableUnits = statusCounts['AVAILABLE'] ?? 0;
     const occupiedUnits = statusCounts['OCCUPIED'] ?? 0;
     const maintenanceUnits = statusCounts['MAINTENANCE'] ?? 0;
+
+    const bookingData = bookingStats[0] || { totalBookings: 0, totalRevenue: 0 };
 
     return {
       totalUnits,
@@ -324,27 +309,38 @@ export class LocationService {
       occupiedUnits,
       maintenanceUnits,
       occupancyRate: totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0,
-      totalBookings: bookingStats._count,
-      activeBookings,
-      totalRevenue: bookingStats._sum.totalPrice ?? 0,
+      totalBookings: bookingData.totalBookings,
+      activeBookings: activeBookingCount,
+      totalRevenue: bookingData.totalRevenue ?? 0,
     };
   }
 
   // Update location rating (called after new review)
   async updateRating(locationId: string): Promise<void> {
-    const result = await prisma.review.aggregate({
-      where: { locationId, isPublic: true },
-      _avg: { rating: true },
-      _count: true,
-    });
-
-    await prisma.storageLocation.update({
-      where: { id: locationId },
-      data: {
-        rating: result._avg.rating ?? 0,
-        reviewCount: result._count,
+    const { Review } = await import('../models/Review.js');
+    
+    const result = await Review.aggregate([
+      { $match: { locationId: new mongoose.Types.ObjectId(locationId), isPublic: true } },
+      {
+        $group: {
+          _id: null,
+          avgRating: { $avg: '$rating' },
+          count: { $sum: 1 },
+        },
       },
-    });
+    ]);
+
+    const rating = result[0]?.avgRating ?? 0;
+    const count = result[0]?.count ?? 0;
+
+    await StorageLocation.findByIdAndUpdate(
+      locationId,
+      {
+        rating,
+        reviewCount: count,
+      },
+      { new: true }
+    );
 
     await this.invalidateCache(locationId);
   }
