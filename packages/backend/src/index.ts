@@ -1,7 +1,6 @@
 import { createApp } from './app.js';
 import { config } from './config/index.js';
 import { connectDatabase, disconnectDatabase } from './config/database.js';
-import { redis, disconnectRedis } from './config/redis.js';
 
 const app = createApp();
 
@@ -9,10 +8,6 @@ async function startServer(): Promise<void> {
   try {
     // Connect to database
     await connectDatabase();
-
-    // Connect to Redis (will auto-connect on first use, but verify it works)
-    await redis.ping();
-    console.log('Redis connected successfully');
 
     // Start server
     const server = app.listen(config.port, () => {
@@ -46,7 +41,6 @@ async function startServer(): Promise<void> {
 
         try {
           await disconnectDatabase();
-          await disconnectRedis();
           console.log('All connections closed');
           process.exit(0);
         } catch (error) {

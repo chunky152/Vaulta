@@ -2,7 +2,7 @@ import { StorageLocation } from '../models/StorageLocation.js';
 import { StorageUnit } from '../models/StorageUnit.js';
 import { Booking } from '../models/Booking.js';
 import mongoose from 'mongoose';
-import { cache } from '../config/redis.js';
+
 import { NotFoundError, ConflictError } from '../types/index.js';
 import { generateSlug } from '../utils/helpers.js';
 import {
@@ -10,8 +10,6 @@ import {
   UpdateLocationInput,
   LocationListInput,
 } from '../validators/location.validator.js';
-
-const CACHE_TTL = 300; // 5 minutes
 
 export class LocationService {
   // Create a new storage location
@@ -37,46 +35,27 @@ export class LocationService {
       amenities: input.amenities ?? [],
     });
 
-    // Invalidate cache
-    await this.invalidateCache();
-
     return location;
   }
 
   // Get location by ID
   async getLocationById(id: string): Promise<any> {
-    const cacheKey = `location:${id}`;
-    const cached = await cache.get<any>(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
     const location = await StorageLocation.findById(id);
 
     if (!location) {
       throw new NotFoundError('Storage location');
     }
 
-    await cache.set(cacheKey, location, CACHE_TTL);
-
     return location;
   }
 
   // Get location by slug
   async getLocationBySlug(slug: string): Promise<any> {
-    const cacheKey = `location:slug:${slug}`;
-    const cached = await cache.get<any>(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
     const location = await StorageLocation.findOne({ slug });
 
     if (!location) {
       throw new NotFoundError('Storage location');
     }
-
-    await cache.set(cacheKey, location, CACHE_TTL);
 
     return location;
   }
@@ -174,10 +153,6 @@ export class LocationService {
       { new: true }
     );
 
-    // Invalidate cache
-    await this.invalidateCache(id);
-    await cache.del(`location:slug:${existing.slug}`);
-
     return location;
   }
 
@@ -208,8 +183,6 @@ export class LocationService {
       { isActive: false },
       { new: true }
     );
-
-    await this.invalidateCache(id);
   }
 
   // Get location with units
@@ -341,16 +314,6 @@ export class LocationService {
       },
       { new: true }
     );
-
-    await this.invalidateCache(locationId);
-  }
-
-  // Invalidate location cache
-  private async invalidateCache(id?: string): Promise<void> {
-    if (id) {
-      await cache.del(`location:${id}`);
-    }
-    // Could also invalidate list caches, featured locations, etc.
   }
 }
 

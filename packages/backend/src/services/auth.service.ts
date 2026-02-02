@@ -2,7 +2,7 @@ import { User, UserRole } from '../models/User.js';
 import { RefreshToken } from '../models/RefreshToken.js';
 import { LoyaltyTransaction } from '../models/LoyaltyTransaction.js';
 import mongoose from 'mongoose';
-import { cache } from '../config/redis.js';
+
 import { hashPassword, comparePassword } from '../utils/password.js';
 import {
   generateTokens,
@@ -317,72 +317,20 @@ export class AuthService {
       return;
     }
 
-    // Generate reset token
-    const resetToken = generateReferralCode() + generateReferralCode();
-    const expiresAt = new Date(Date.now() + 3600000); // 1 hour
-
-    // Store in Redis
-    await cache.set(
-      `password_reset:${resetToken}`,
-      { userId: user._id.toString(), email: user.email },
-      3600 // 1 hour TTL
-    );
-
-    // TODO: Send email with reset link
-    console.log(`Password reset token for ${email}: ${resetToken}`);
+    // TODO: Implement password reset with email service
+    console.log(`Password reset requested for ${email}`);
   }
 
   // Reset password
   async resetPassword(token: string, newPassword: string): Promise<void> {
-    const data = await cache.get<{ userId: string; email: string }>(
-      `password_reset:${token}`
-    );
-
-    if (!data) {
-      throw new ValidationError('Invalid or expired reset token');
-    }
-
-    const passwordHash = await hashPassword(newPassword);
-    const objectId = new mongoose.Types.ObjectId(data.userId);
-
-    const session = await mongoose.startSession();
-    session.startTransaction();
-    try {
-      await User.updateOne(
-        { _id: objectId },
-        { passwordHash },
-        { session }
-      );
-      await RefreshToken.deleteMany({ userId: objectId }, { session });
-      await session.commitTransaction();
-    } catch (error) {
-      await session.abortTransaction();
-      throw error;
-    } finally {
-      await session.endSession();
-    }
-
-    // Delete the reset token
-    await cache.del(`password_reset:${token}`);
+    // TODO: Implement password reset token validation
+    throw new ValidationError('Password reset functionality requires email service integration');
   }
 
   // Verify email (placeholder - needs email service integration)
   async verifyEmail(token: string): Promise<void> {
-    const data = await cache.get<{ userId: string }>(
-      `email_verification:${token}`
-    );
-
-    if (!data) {
-      throw new ValidationError('Invalid or expired verification token');
-    }
-
-    const objectId = new mongoose.Types.ObjectId(data.userId);
-    await User.updateOne(
-      { _id: objectId },
-      { emailVerified: true }
-    );
-
-    await cache.del(`email_verification:${token}`);
+    // TODO: Implement email verification token validation
+    throw new ValidationError('Email verification functionality requires email service integration');
   }
 }
 

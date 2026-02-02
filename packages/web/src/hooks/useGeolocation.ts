@@ -80,7 +80,8 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
 
   useEffect(() => {
     getCurrentPosition();
-  }, [getCurrentPosition]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return {
     ...state,
