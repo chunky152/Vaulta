@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
 interface GeolocationState {
   latitude: number | null;
@@ -86,9 +86,12 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
   return {
     ...state,
     refresh: getCurrentPosition,
-    position:
-      state.latitude && state.longitude
-        ? { latitude: state.latitude, longitude: state.longitude }
-        : null,
+    position: useMemo(
+      () =>
+        state.latitude && state.longitude
+          ? { latitude: state.latitude, longitude: state.longitude }
+          : null,
+      [state.latitude, state.longitude]
+    ),
   };
 }

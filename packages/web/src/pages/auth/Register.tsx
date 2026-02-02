@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
 import { Logo } from '@/components/ui/Logo';
 import { useAuthStore } from '@/stores/auth.store';
-import { Mail, Lock, User, Phone, Gift, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User, Phone, AlertCircle } from 'lucide-react';
 
 const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -19,10 +19,9 @@ const registerSchema = z.object({
     .regex(/[0-9]/, 'Password must contain at least one number')
     .regex(/[!@#$%^&*(),.?":{}|<>]/, 'Password must contain at least one special character'),
   confirmPassword: z.string(),
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
-  phone: z.string().optional(),
-  referralCode: z.string().length(8, 'Referral code must be 8 characters').optional().or(z.literal('')),
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+  phone: z.string().min(1, 'Phone number is required'),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ['confirmPassword'],
@@ -51,7 +50,6 @@ export function RegisterPage() {
         firstName: data.firstName,
         lastName: data.lastName,
         phone: data.phone,
-        referralCode: data.referralCode || undefined,
       });
       navigate('/dashboard', { replace: true });
     } catch {
@@ -68,7 +66,7 @@ export function RegisterPage() {
           </div>
           <CardTitle className="text-2xl">Create an account</CardTitle>
           <CardDescription>
-            Get started with Vaulta today
+            Get started with Unbur today
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -83,7 +81,7 @@ export function RegisterPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label htmlFor="firstName" className="text-sm font-medium">
-                  First Name
+                  First Name *
                 </label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -91,6 +89,7 @@ export function RegisterPage() {
                     id="firstName"
                     placeholder="John"
                     className="pl-10"
+                    error={errors.firstName?.message}
                     {...register('firstName')}
                   />
                 </div>
@@ -126,7 +125,7 @@ export function RegisterPage() {
 
             <div className="space-y-2">
               <label htmlFor="phone" className="text-sm font-medium">
-                Phone (optional)
+                Phone
               </label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -170,23 +169,6 @@ export function RegisterPage() {
                   className="pl-10"
                   error={errors.confirmPassword?.message}
                   {...register('confirmPassword')}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="referralCode" className="text-sm font-medium">
-                Referral Code (optional)
-              </label>
-              <div className="relative">
-                <Gift className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="referralCode"
-                  placeholder="Enter referral code"
-                  className="pl-10"
-                  maxLength={8}
-                  error={errors.referralCode?.message}
-                  {...register('referralCode')}
                 />
               </div>
             </div>

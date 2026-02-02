@@ -24,11 +24,11 @@ export function Logo({
     <div className={cn('flex items-center gap-2', className)}>
       <img
         src="/logo.jpeg"
-        alt="Vaulta"
+        alt="Unbur"
         className={cn(sizeClasses[size].img, 'object-contain')}
       />
       {showText && (
-        <span className={cn('font-bold', sizeClasses[size].text)}>Vaulta</span>
+        <span className={cn('font-bold', sizeClasses[size].text)}>Unbur</span>
       )}
     </div>
   );

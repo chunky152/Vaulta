@@ -107,7 +107,7 @@ export function HowItWorksPage() {
         <div className="container">
           <div className="max-w-3xl mx-auto text-center">
             <h1 className="text-4xl lg:text-5xl font-bold tracking-tight mb-6">
-              How Vaulta Works
+              How Unbur Works
             </h1>
             <p className="text-lg text-muted-foreground mb-8">
               Renting storage has never been easier. Find, book, and access your
@@ -153,7 +153,7 @@ export function HowItWorksPage() {
       <section className="py-16 lg:py-24 bg-muted/30">
         <div className="container">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">Why Choose Vaulta?</h2>
+            <h2 className="text-3xl font-bold mb-4">Why Choose Unbur?</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               We've reimagined storage to be simple, secure, and accessible.
             </p>

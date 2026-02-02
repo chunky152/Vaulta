@@ -1,4 +1,4 @@
-# Vaulta
+# Unbur
 
 A modern full-stack platform for location-based storage unit discovery, booking, and management.
 
@@ -26,7 +26,7 @@ A modern full-stack platform for location-based storage unit discovery, booking,
 ## Project Structure
 
 ```
-vaulta/
+unbur/
 ├── packages/
 │   ├── backend/          # Express.js API server
 │   │   ├── prisma/       # Database schema & migrations
@@ -62,7 +62,7 @@ vaulta/
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd vaulta
+   cd unbur
    ```
 
 2. **Install dependencies**
@@ -82,7 +82,7 @@ vaulta/
 
 5. **Seed the database (optional)**
    ```bash
-   npm run db:seed -w @vaulta/backend
+   npm run db:seed -w @unbur/backend
    ```
 
 7. **Start development servers**
@@ -91,8 +91,8 @@ vaulta/
    npm run dev
 
    # Or start individually:
-   npm run dev -w @vaulta/backend
-   npm run dev -w @vaulta/web
+   npm run dev -w @unbur/backend
+   npm run dev -w @unbur/web
    ```
 
 The API will be available at `http://localhost:3000` and the web app at `http://localhost:5173`.
@@ -130,7 +130,7 @@ The API will be available at `http://localhost:3000` and the web app at `http://
 ```env
 NODE_ENV=development
 PORT=3000
-DATABASE_URL=mongodb://localhost:27017/vaulta
+DATABASE_URL=mongodb://localhost:27017/unbur
 JWT_SECRET=your-jwt-secret
 JWT_REFRESH_SECRET=your-refresh-secret
 STRIPE_SECRET_KEY=sk_test_...
@@ -151,16 +151,16 @@ VITE_API_URL=http://localhost:3000/api/v1
 ```bash
 # Development
 npm run dev                    # Start all services
-npm run dev -w @vaulta/backend   # Start backend only
-npm run dev -w @vaulta/web       # Start frontend only
+npm run dev -w @unbur/backend   # Start backend only
+npm run dev -w @unbur/web       # Start frontend only
 
 # Database (MongoDB with Mongoose)
 npm run db:seed                # Seed database with initial data
 
 # Build
 npm run build                 # Build all packages
-npm run build -w @vaulta/backend  # Build backend
-npm run build -w @vaulta/web      # Build frontend
+npm run build -w @unbur/backend  # Build backend
+npm run build -w @unbur/web      # Build frontend
 
 # Testing
 npm run test                  # Run all tests

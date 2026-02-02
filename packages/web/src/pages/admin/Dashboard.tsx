@@ -108,7 +108,7 @@ export function AdminDashboardPage() {
           <div>
             <h1 className="text-3xl font-bold">Admin Dashboard</h1>
             <p className="text-muted-foreground mt-1">
-              Overview of your Vaulta platform
+              Overview of your Unbur platform
             </p>
           </div>
           <div className="flex gap-2">
@@ -225,12 +225,11 @@ export function AdminDashboardPage() {
                         className="flex items-center justify-between p-3 border rounded-lg"
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`w-2 h-2 rounded-full ${
-                            booking.status === 'ACTIVE' ? 'bg-green-500' :
-                            booking.status === 'CONFIRMED' ? 'bg-blue-500' :
-                            booking.status === 'PENDING' ? 'bg-yellow-500' :
-                            'bg-gray-400'
-                          }`} />
+                          <div className={`w-2 h-2 rounded-full ${booking.status === 'ACTIVE' ? 'bg-green-500' :
+                              booking.status === 'CONFIRMED' ? 'bg-blue-500' :
+                                booking.status === 'PENDING' ? 'bg-yellow-500' :
+                                  'bg-gray-400'
+                            }`} />
                           <div>
                             <div className="font-medium">{booking.bookingNumber}</div>
                             <div className="text-sm text-muted-foreground">
