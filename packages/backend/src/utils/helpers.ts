@@ -41,9 +41,9 @@ export function calculateDistance(
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
@@ -105,7 +105,7 @@ export function paginate<T>(
 }
 
 // Sanitize user object for response (remove sensitive fields)
-export function sanitizeUser<T extends Record<string, unknown>>(
+export function sanitizeUser<T extends object>(
   user: T
 ): Omit<T, 'passwordHash'> {
   const { passwordHash, ...sanitized } = user as T & { passwordHash?: string };
