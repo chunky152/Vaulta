@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
 import { Logo } from '@/components/ui/Logo';
 import { useAuthStore } from '@/stores/auth.store';
-import { Mail, Lock, User, Phone, AlertCircle } from 'lucide-react';
+import { Mail, Lock, AlertCircle } from 'lucide-react';
 
 const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -19,9 +19,6 @@ const registerSchema = z.object({
     .regex(/[0-9]/, 'Password must contain at least one number')
     .regex(/[!@#$%^&*(),.?":{}|<>]/, 'Password must contain at least one special character'),
   confirmPassword: z.string(),
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
-  phone: z.string().min(1, 'Phone number is required'),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ['confirmPassword'],
@@ -47,9 +44,10 @@ export function RegisterPage() {
       await registerUser({
         email: data.email,
         password: data.password,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        phone: data.phone,
+        // Optional fields can be omitted or sent as undefined if backend supports it
+        firstName: undefined,
+        lastName: undefined,
+        phone: undefined,
       });
       navigate('/dashboard', { replace: true });
     } catch {
@@ -78,34 +76,6 @@ export function RegisterPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label htmlFor="firstName" className="text-sm font-medium">
-                  First Name *
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="firstName"
-                    placeholder="John"
-                    className="pl-10"
-                    error={errors.firstName?.message}
-                    {...register('firstName')}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="lastName" className="text-sm font-medium">
-                  Last Name
-                </label>
-                <Input
-                  id="lastName"
-                  placeholder="Doe"
-                  {...register('lastName')}
-                />
-              </div>
-            </div>
-
             <div className="space-y-2">
               <label htmlFor="email" className="text-sm font-medium">
                 Email *
@@ -119,22 +89,6 @@ export function RegisterPage() {
                   className="pl-10"
                   error={errors.email?.message}
                   {...register('email')}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="phone" className="text-sm font-medium">
-                Phone
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+1234567890"
-                  className="pl-10"
-                  {...register('phone')}
                 />
               </div>
             </div>
