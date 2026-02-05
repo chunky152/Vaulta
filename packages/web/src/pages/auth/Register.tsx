@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
 import { Logo } from '@/components/ui/Logo';
 import { useAuthStore } from '@/stores/auth.store';
-import { Mail, Lock, AlertCircle } from 'lucide-react';
+import { Mail, Lock, AlertCircle, Phone } from 'lucide-react';
 
 const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -18,6 +18,7 @@ const registerSchema = z.object({
     .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
     .regex(/[0-9]/, 'Password must contain at least one number')
     .regex(/[!@#$%^&*(),.?":{}|<>]/, 'Password must contain at least one special character'),
+  phone: z.string().regex(/^\+[1-9]\d{1,14}$/, 'Phone number must be in E.164 format (e.g., +1234567890)'),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
@@ -47,7 +48,7 @@ export function RegisterPage() {
         // Optional fields can be omitted or sent as undefined if backend supports it
         firstName: undefined,
         lastName: undefined,
-        phone: undefined,
+        phone: data.phone,
       });
       navigate('/dashboard', { replace: true });
     } catch {
@@ -89,6 +90,23 @@ export function RegisterPage() {
                   className="pl-10"
                   error={errors.email?.message}
                   {...register('email')}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="phone" className="text-sm font-medium">
+                Phone Number *
+              </label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="+1234567890"
+                  className="pl-10"
+                  error={errors.phone?.message}
+                  {...register('phone')}
                 />
               </div>
             </div>

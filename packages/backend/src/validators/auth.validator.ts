@@ -26,8 +26,7 @@ const phoneSchema = z
   .regex(
     /^\+[1-9]\d{1,14}$/,
     'Phone number must be in E.164 format (e.g., +1234567890)'
-  )
-  .optional();
+  );
 
 // Name validation
 const nameSchema = z

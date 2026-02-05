@@ -11,7 +11,7 @@ interface IUser extends Document {
   passwordHash: string;
   firstName?: string;
   lastName?: string;
-  phone?: string;
+  phone: string;
   role: UserRole;
   emailVerified: boolean;
   phoneVerified: boolean;
@@ -31,7 +31,7 @@ const userSchema = new Schema<IUser>(
     passwordHash: { type: String, required: true },
     firstName: String,
     lastName: String,
-    phone: String,
+    phone: { type: String, required: true },
     role: { type: String, enum: Object.values(UserRole), default: UserRole.CUSTOMER },
     emailVerified: { type: Boolean, default: false },
     phoneVerified: { type: Boolean, default: false },
