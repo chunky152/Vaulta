@@ -1,22 +1,22 @@
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model, Document, Types } from 'mongoose';
 
 interface ILoyaltyTransaction extends Document {
-  userId: string;
+  userId: Types.ObjectId;
   points: number;
   type: 'EARNED' | 'REDEEMED' | 'EXPIRED' | 'BONUS';
   source: 'BOOKING' | 'REFERRAL' | 'PROMO' | 'REVIEW' | 'SIGNUP';
-  referenceId?: string;
+  referenceId?: Types.ObjectId;
   description?: string;
   createdAt: Date;
 }
 
 const loyaltyTransactionSchema = new Schema<ILoyaltyTransaction>(
   {
-    userId: { type: 'objectId', required: true },
+    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     points: { type: Number, required: true },
     type: { type: String, enum: ['EARNED', 'REDEEMED', 'EXPIRED', 'BONUS'], required: true },
     source: { type: String, enum: ['BOOKING', 'REFERRAL', 'PROMO', 'REVIEW', 'SIGNUP'], required: true },
-    referenceId: 'objectId',
+    referenceId: { type: Schema.Types.ObjectId, ref: 'User' },
     description: String,
   },
   { timestamps: true }

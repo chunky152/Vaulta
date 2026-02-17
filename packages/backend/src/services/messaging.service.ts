@@ -21,10 +21,10 @@ export class MessagingService {
         const authToken = process.env.TWILIO_AUTH_TOKEN;
         this.twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
 
-        if (accountSid && authToken && this.twilioPhoneNumber) {
+        if (accountSid && accountSid.startsWith('AC') && authToken && this.twilioPhoneNumber) {
             this.twilioClient = twilio(accountSid, authToken);
         } else {
-            console.warn('Twilio credentials are not set. SMS sending will be disabled.');
+            console.warn('Twilio credentials are not set or invalid. SMS sending will be disabled.');
         }
     }
 
