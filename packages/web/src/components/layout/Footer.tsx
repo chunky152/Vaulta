@@ -2,6 +2,23 @@ import { Link } from 'react-router-dom';
 import { Logo } from '@/components/ui/Logo';
 import { Mail, Phone, Twitter, Facebook, Instagram } from 'lucide-react';
 
+const TikTok = ({ className }: { className?: string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M21 7.917v4.034a9.948 9.948 0 0 1 -5 -1.951v4.5a6.5 6.5 0 1 1 -8 -6.326v4.326a2.5 2.5 0 1 0 4 2v-11.5h4.083a6.005 6.005 0 0 0 4.917 4.917" />
+  </svg>
+);
+
 export function Footer() {
   return (
     <footer className="border-t bg-muted/50">
@@ -30,8 +47,18 @@ export function Footer() {
               <a
                 href="#"
                 className="text-muted-foreground hover:text-foreground transition-colors"
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 <Instagram className="h-5 w-5" />
+              </a>
+              <a
+                href="https://www.tiktok.com/@unbur.io?_r=1&_t=ZS-9402hPBzZwK"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <TikTok className="h-5 w-5" />
               </a>
             </div>
           </div>
