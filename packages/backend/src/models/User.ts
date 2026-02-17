@@ -1,4 +1,4 @@
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model, Document, Types } from 'mongoose';
 
 export enum UserRole {
   CUSTOMER = 'CUSTOMER',
@@ -17,7 +17,7 @@ interface IUser extends Document {
   phoneVerified: boolean;
   profileImageUrl?: string;
   referralCode: string;
-  referredById?: string;
+  referredById?: Types.ObjectId;
   loyaltyPoints: number;
   isActive: boolean;
   lastLoginAt?: Date;
@@ -37,7 +37,7 @@ const userSchema = new Schema<IUser>(
     phoneVerified: { type: Boolean, default: false },
     profileImageUrl: String,
     referralCode: { type: String, required: true, unique: true },
-    referredById: 'objectId',
+    referredById: { type: Schema.Types.ObjectId, ref: 'User' },
     loyaltyPoints: { type: Number, default: 0 },
     isActive: { type: Boolean, default: true },
     lastLoginAt: Date,
