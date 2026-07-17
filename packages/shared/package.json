@@ -1,0 +1,21 @@
+{
+  "name": "@unbur/shared",
+  "version": "1.0.0",
+  "description": "Types and constants shared between the Unbur backend and web app",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepare": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

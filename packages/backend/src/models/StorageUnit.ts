@@ -1,18 +1,8 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
-export enum UnitSize {
-  SMALL = 'SMALL',
-  MEDIUM = 'MEDIUM',
-  LARGE = 'LARGE',
-  XL = 'XL',
-}
+import { UnitSize, UnitStatus } from '@unbur/shared';
 
-export enum UnitStatus {
-  AVAILABLE = 'AVAILABLE',
-  OCCUPIED = 'OCCUPIED',
-  MAINTENANCE = 'MAINTENANCE',
-  RESERVED = 'RESERVED',
-}
+export { UnitSize, UnitStatus };
 
 export interface IStorageUnit extends Document {
   locationId: Types.ObjectId;

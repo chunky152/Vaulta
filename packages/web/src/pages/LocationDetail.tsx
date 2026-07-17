@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { Icon } from 'leaflet';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import { useLocationStore } from '@/stores/location.store';
+import { useLocation, useLocationUnits } from '@/hooks/useLocations';
 import { useAuthStore } from '@/stores/auth.store';
 import {
   MapPin,
@@ -49,23 +49,12 @@ const amenityIcons: Record<string, React.ReactNode> = {
 export function LocationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const {
-    selectedLocation: currentLocation,
-    locationUnits: units,
-    fetchLocationById,
-    fetchLocationUnits,
-    isLoading,
-  } = useLocationStore();
+  // The route param can be an id or a slug (search results link by slug)
+  const { location: currentLocation, isLoading } = useLocation(id);
+  const { units } = useLocationUnits(currentLocation?.id);
   const { isAuthenticated } = useAuthStore();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (id) {
-      fetchLocationById(id);
-      fetchLocationUnits(id);
-    }
-  }, [id, fetchLocationById, fetchLocationUnits]);
 
   const handleBookUnit = (unit: StorageUnit) => {
     if (!isAuthenticated) {

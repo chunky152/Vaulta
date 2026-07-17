@@ -1,10 +1,9 @@
-import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { useAuthStore } from '@/stores/auth.store';
-import { useBookingStore } from '@/stores/booking.store';
-import { useInventoryStore } from '@/stores/inventory.store';
+import { useMyBookings } from '@/hooks/useBookings';
+import { useInventorySummary } from '@/hooks/useInventory';
 import {
   MapPin,
   Calendar,
@@ -36,13 +35,8 @@ const statusLabels: Record<string, string> = {
 export function DashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { bookings, fetchUserBookings, isLoading } = useBookingStore();
-  const { summary, fetchSummary } = useInventoryStore();
-
-  useEffect(() => {
-    fetchUserBookings();
-    fetchSummary();
-  }, [fetchUserBookings, fetchSummary]);
+  const { bookings, isLoading } = useMyBookings();
+  const { summary } = useInventorySummary();
 
   const activeBookings = bookings.filter(
     (b) => b.status === 'ACTIVE' || b.status === 'CONFIRMED'

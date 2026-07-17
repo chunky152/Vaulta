@@ -1,13 +1,8 @@
 import { Schema, model, Document } from 'mongoose';
 
-export enum BookingStatus {
-  PENDING = 'PENDING',
-  CONFIRMED = 'CONFIRMED',
-  ACTIVE = 'ACTIVE',
-  COMPLETED = 'COMPLETED',
-  CANCELLED = 'CANCELLED',
-  EXPIRED = 'EXPIRED',
-}
+import { BookingStatus } from '@unbur/shared';
+
+export { BookingStatus };
 
 import { Types } from 'mongoose';
 

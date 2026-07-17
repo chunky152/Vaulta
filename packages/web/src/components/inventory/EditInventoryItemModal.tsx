@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import { useInventoryStore } from '@/stores/inventory.store';
+import { useUpdateInventoryItem } from '@/hooks/useInventory';
 import type { InventoryItem, UpdateInventoryItemInput, ItemCondition } from '@/types';
 import { ITEM_CATEGORIES } from '@/types';
 import { X, Edit2 } from 'lucide-react';
@@ -25,7 +25,8 @@ export function EditInventoryItemModal({
   isOpen,
   onClose,
 }: EditInventoryItemModalProps) {
-  const { updateItem, isLoading } = useInventoryStore();
+  const updateItem = useUpdateInventoryItem();
+  const isLoading = updateItem.isPending;
 
   const [formData, setFormData] = useState<UpdateInventoryItemInput>({
     name: item.name,
@@ -66,10 +67,10 @@ export function EditInventoryItemModal({
     }
 
     try {
-      await updateItem(item.id, formData);
+      await updateItem.mutateAsync({ itemId: item.id, data: formData });
       onClose();
-    } catch (error) {
-      console.error('Failed to update item:', error);
+    } catch {
+      // Error surfaced via toast
     }
   };
 

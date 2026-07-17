@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import { useInventoryStore } from '@/stores/inventory.store';
+import { useAddInventoryItem } from '@/hooks/useInventory';
 import type { Booking, CreateInventoryItemInput, ItemCondition } from '@/types';
 import { ITEM_CATEGORIES } from '@/types';
 import { X, Package } from 'lucide-react';
@@ -27,7 +27,8 @@ export function AddInventoryItemModal({
   bookings,
   preselectedBookingId,
 }: AddInventoryItemModalProps) {
-  const { addItem, isLoading } = useInventoryStore();
+  const addItem = useAddInventoryItem();
+  const isLoading = addItem.isPending;
 
   const [selectedBookingId, setSelectedBookingId] = useState(
     preselectedBookingId || ''
@@ -58,10 +59,10 @@ export function AddInventoryItemModal({
     }
 
     try {
-      await addItem(selectedBookingId, formData);
+      await addItem.mutateAsync({ bookingId: selectedBookingId, data: formData });
       handleClose();
-    } catch (error) {
-      console.error('Failed to add item:', error);
+    } catch {
+      // Error surfaced via toast
     }
   };
 

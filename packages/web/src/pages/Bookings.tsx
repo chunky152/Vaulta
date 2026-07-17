@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
-import { useBookingStore } from '@/stores/booking.store';
+import { useMyBookings } from '@/hooks/useBookings';
 import { api } from '@/services/api';
 import {
   MapPin,
@@ -35,14 +35,10 @@ type FilterStatus = 'ALL' | 'PENDING' | 'CONFIRMED' | 'ACTIVE' | 'COMPLETED' | '
 
 export function BookingsPage() {
   const navigate = useNavigate();
-  const { bookings, fetchUserBookings, isLoading } = useBookingStore();
+  const { bookings, isLoading } = useMyBookings();
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('ALL');
   const [expandedBooking, setExpandedBooking] = useState<string | null>(null);
   const [bookingDetails, setBookingDetails] = useState<Record<string, { unit?: StorageUnit; location?: StorageLocation }>>({});
-
-  useEffect(() => {
-    fetchUserBookings();
-  }, [fetchUserBookings]);
 
   const fetchBookingDetails = async (booking: Booking) => {
     if (bookingDetails[booking.id]) return;

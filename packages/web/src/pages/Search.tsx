@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { LocationMap } from '@/components/map/LocationMap';
-import { useLocationStore } from '@/stores/location.store';
+import { useNearbyLocations } from '@/hooks/useLocations';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { formatDistance } from '@/lib/utils';
 import type { LocationWithDistance } from '@/types';
@@ -23,35 +23,22 @@ export function SearchPage() {
     useState<LocationWithDistance | null>(null);
   const [radius, setRadius] = useState(10);
 
-  const { position, isLoading: geoLoading } = useGeolocation();
-  const {
-    locations,
-    searchNearby,
-    setUserPosition,
-    isLoading,
-    error,
-    pagination,
-  } = useLocationStore();
+  const { position: geoPosition, isLoading: geoLoading } = useGeolocation();
 
-  // Get initial coordinates from URL or geolocation
-  useEffect(() => {
-    const lat = searchParams.get('lat');
-    const lng = searchParams.get('lng');
+  // Coordinates from the URL win; otherwise fall back to geolocation.
+  const lat = searchParams.get('lat');
+  const lng = searchParams.get('lng');
+  const position =
+    lat && lng
+      ? { latitude: parseFloat(lat), longitude: parseFloat(lng) }
+      : geoPosition;
 
-    if (lat && lng) {
-      const coords = { latitude: parseFloat(lat), longitude: parseFloat(lng) };
-      setUserPosition(coords);
-      searchNearby({ ...coords, radiusKm: radius });
-    } else if (position) {
-      setUserPosition(position);
-      searchNearby({ ...position, radiusKm: radius });
-    }
-  }, [position, searchParams, searchNearby, setUserPosition, radius]);
+  // The query re-runs automatically whenever position or radius changes.
+  const { locations, pagination, isLoading, error, refetch } =
+    useNearbyLocations(position ? { ...position, radiusKm: radius } : null);
 
   const handleSearch = () => {
-    if (position) {
-      searchNearby({ ...position, radiusKm: radius });
-    }
+    refetch();
   };
 
   const handleLocationClick = (location: LocationWithDistance) => {

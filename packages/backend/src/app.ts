@@ -37,10 +37,10 @@ export function createApp(): Express {
     if (req.originalUrl === '/api/v1/payments/webhook') {
       next();
     } else {
-      express.json({ limit: '10mb' })(req, res, next);
+      express.json({ limit: '1mb' })(req, res, next);
     }
   });
-  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
   // Rate limiting
   app.use(defaultRateLimiter);

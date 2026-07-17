@@ -148,7 +148,7 @@ export class BookingController {
 
     const response: ApiResponse = {
       success: true,
-      message: 'Checked out successfully. Thank you for using Vaulta!',
+      message: 'Checked out successfully. Thank you for using Unbur!',
       data: { booking },
     };
 
