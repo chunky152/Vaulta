@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { objectId } from './common.validator.js';
 
 // Coordinates validation
 const latitudeSchema = z
@@ -132,7 +133,7 @@ export type LocationListInput = z.infer<typeof locationListSchema>;
 
 // Location ID param schema
 export const locationIdSchema = z.object({
-  id: z.string().uuid('Invalid location ID'),
+  id: objectId('Invalid location ID'),
 });
 
 export type LocationIdInput = z.infer<typeof locationIdSchema>;

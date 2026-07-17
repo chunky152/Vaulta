@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { Card, CardContent } from '@/components/ui/Card';
 import { LocationMap } from '@/components/map/LocationMap';
 import { useLocationStore } from '@/stores/location.store';
 import { useGeolocation } from '@/hooks/useGeolocation';
-import { formatDistance, formatCurrency } from '@/lib/utils';
+import { formatDistance } from '@/lib/utils';
 import type { LocationWithDistance } from '@/types';
 import {
   MapPin,
@@ -15,7 +14,6 @@ import {
   List,
   Map as MapIcon,
   Loader2,
-  Filter,
 } from 'lucide-react';
 
 export function SearchPage() {
@@ -25,7 +23,7 @@ export function SearchPage() {
     useState<LocationWithDistance | null>(null);
   const [radius, setRadius] = useState(10);
 
-  const { position, isLoading: geoLoading, error: geoError } = useGeolocation();
+  const { position, isLoading: geoLoading } = useGeolocation();
   const {
     locations,
     searchNearby,

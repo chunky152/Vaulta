@@ -54,13 +54,12 @@ export function CheckoutPage() {
 
     try {
       // Create payment intent
-      const intentResponse = await api.post('/payments/create-intent', {
+      await api.post('/payments/create-intent', {
         bookingId: booking.id,
       });
 
       // In a real app, you would use Stripe Elements here
       // For demo, we'll simulate a successful payment
-      const { clientSecret } = intentResponse.data.data;
 
       // Simulate payment processing
       await new Promise(resolve => setTimeout(resolve, 2000));

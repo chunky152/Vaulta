@@ -1,6 +1,5 @@
 import { StorageLocation } from '../models/StorageLocation.js';
 import { StorageUnit } from '../models/StorageUnit.js';
-import mongoose from 'mongoose';
 import { LocationWithDistance } from '../types/index.js';
 
 

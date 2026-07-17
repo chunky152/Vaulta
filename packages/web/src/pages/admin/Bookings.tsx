@@ -1,17 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { Card, CardContent } from '@/components/ui/Card';
 import { api } from '@/services/api';
 import {
   Calendar,
   Search,
-  Filter,
   Download,
   Eye,
   CheckCircle,
   XCircle,
-  Clock,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';

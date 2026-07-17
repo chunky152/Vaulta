@@ -1,7 +1,6 @@
 import { StorageUnit, UnitStatus } from '../models/StorageUnit.js';
 import { StorageLocation } from '../models/StorageLocation.js';
 import { Booking } from '../models/Booking.js';
-import mongoose from 'mongoose';
 import { NotFoundError, ConflictError } from '../types/index.js';
 import { generateUnitQRCode } from '../utils/qrcode.js';
 import {

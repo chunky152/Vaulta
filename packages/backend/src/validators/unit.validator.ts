@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { objectId } from './common.validator.js';
 import { UnitSize, UnitStatus } from '../models/StorageUnit.js';
 
 // Dimensions schema
@@ -24,7 +25,7 @@ const featuresSchema = z.array(
 
 // Create unit schema
 export const createUnitSchema = z.object({
-  locationId: z.string().uuid('Invalid location ID'),
+  locationId: objectId('Invalid location ID'),
   unitNumber: z
     .string()
     .min(1, 'Unit number is required')
@@ -73,7 +74,7 @@ export type UpdateUnitStatusInput = z.infer<typeof updateUnitStatusSchema>;
 
 // Unit search schema (query params)
 export const unitSearchSchema = z.object({
-  locationId: z.string().uuid().optional(),
+  locationId: objectId().optional(),
   size: z.nativeEnum(UnitSize).optional(),
   status: z.nativeEnum(UnitStatus).optional(),
   minPriceHourly: z.coerce.number().positive().optional(),
@@ -115,14 +116,14 @@ export type UnitAvailabilityInput = z.infer<typeof unitAvailabilitySchema>;
 
 // Unit ID param schema
 export const unitIdSchema = z.object({
-  id: z.string().uuid('Invalid unit ID'),
+  id: objectId('Invalid unit ID'),
 });
 
 export type UnitIdInput = z.infer<typeof unitIdSchema>;
 
 // Bulk create units schema
 export const bulkCreateUnitsSchema = z.object({
-  locationId: z.string().uuid('Invalid location ID'),
+  locationId: objectId('Invalid location ID'),
   units: z.array(createUnitSchema.omit({ locationId: true })).min(1).max(50),
 });
 

@@ -9,6 +9,7 @@ import {
   listInventorySchema,
 } from '../validators/inventory.validator.js';
 import { z } from 'zod';
+import { objectId } from '../validators/common.validator.js';
 
 const router = Router();
 
@@ -31,14 +32,14 @@ router.get(
 // Get a single inventory item
 router.get(
   '/:itemId',
-  validate(z.object({ itemId: z.string().uuid() }), 'params'),
+  validate(z.object({ itemId: objectId() }), 'params'),
   asyncHandler(inventoryController.getItem.bind(inventoryController))
 );
 
 // Update an inventory item
 router.put(
   '/:itemId',
-  validate(z.object({ itemId: z.string().uuid() }), 'params'),
+  validate(z.object({ itemId: objectId() }), 'params'),
   validate(updateInventoryItemSchema),
   asyncHandler(inventoryController.updateItem.bind(inventoryController))
 );
@@ -46,7 +47,7 @@ router.put(
 // Delete an inventory item
 router.delete(
   '/:itemId',
-  validate(z.object({ itemId: z.string().uuid() }), 'params'),
+  validate(z.object({ itemId: objectId() }), 'params'),
   asyncHandler(inventoryController.deleteItem.bind(inventoryController))
 );
 
@@ -63,7 +64,7 @@ bookingInventoryRouter.use(authenticate);
 // Get items for a specific booking
 bookingInventoryRouter.get(
   '/:bookingId/inventory',
-  validate(z.object({ bookingId: z.string().uuid() }), 'params'),
+  validate(z.object({ bookingId: objectId() }), 'params'),
   validate(listInventorySchema, 'query'),
   asyncHandler(inventoryController.getBookingItems.bind(inventoryController))
 );
@@ -71,7 +72,7 @@ bookingInventoryRouter.get(
 // Add item to a booking
 bookingInventoryRouter.post(
   '/:bookingId/inventory',
-  validate(z.object({ bookingId: z.string().uuid() }), 'params'),
+  validate(z.object({ bookingId: objectId() }), 'params'),
   validate(createInventoryItemSchema),
   asyncHandler(inventoryController.addItem.bind(inventoryController))
 );

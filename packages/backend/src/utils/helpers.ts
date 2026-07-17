@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 
 // Generate a unique booking number
@@ -52,17 +51,6 @@ function toRad(deg: number): number {
   return deg * (Math.PI / 180);
 }
 
-// Format currency
-export function formatCurrency(
-  amount: number,
-  currency: string = 'USD'
-): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-  }).format(amount);
-}
-
 // Calculate duration between two dates
 export function calculateDuration(
   startTime: Date,
@@ -90,78 +78,10 @@ export function determinePricingType(
   }
 }
 
-// Paginate array
-export function paginate<T>(
-  array: T[],
-  page: number,
-  limit: number
-): { data: T[]; total: number; totalPages: number } {
-  const offset = (page - 1) * limit;
-  const data = array.slice(offset, offset + limit);
-  const total = array.length;
-  const totalPages = Math.ceil(total / limit);
-
-  return { data, total, totalPages };
-}
-
 // Sanitize user object for response (remove sensitive fields)
 export function sanitizeUser<T extends object>(
   user: T
 ): Omit<T, 'passwordHash'> {
   const { passwordHash, ...sanitized } = user as T & { passwordHash?: string };
   return sanitized as Omit<T, 'passwordHash'>;
-}
-
-// Parse boolean from string
-export function parseBoolean(value: string | undefined): boolean | undefined {
-  if (value === undefined) return undefined;
-  return value.toLowerCase() === 'true';
-}
-
-// Parse date from string
-export function parseDate(value: string | undefined): Date | undefined {
-  if (value === undefined) return undefined;
-  const date = new Date(value);
-  return isNaN(date.getTime()) ? undefined : date;
-}
-
-// Generate UUID
-export function generateUUID(): string {
-  return uuidv4();
-}
-
-// Check if UUID is valid
-export function isValidUUID(uuid: string): boolean {
-  const uuidRegex =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(uuid);
-}
-
-// Delay execution (useful for testing)
-export function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-// Omit keys from object
-export function omit<T extends object, K extends keyof T>(
-  obj: T,
-  keys: K[]
-): Omit<T, K> {
-  const result = { ...obj };
-  keys.forEach((key) => delete result[key]);
-  return result;
-}
-
-// Pick keys from object
-export function pick<T extends object, K extends keyof T>(
-  obj: T,
-  keys: K[]
-): Pick<T, K> {
-  const result = {} as Pick<T, K>;
-  keys.forEach((key) => {
-    if (key in obj) {
-      result[key] = obj[key];
-    }
-  });
-  return result;
 }

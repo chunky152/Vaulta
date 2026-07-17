@@ -72,6 +72,17 @@ export function optionalAuth(
   }
 }
 
+// Return the authenticated user or throw. For controllers on routes that
+// already run `authenticate` — replaces per-method 401 boilerplate.
+export function requireUser(
+  req: AuthenticatedRequest
+): NonNullable<AuthenticatedRequest['user']> {
+  if (!req.user) {
+    throw new AuthenticationError();
+  }
+  return req.user;
+}
+
 // Role-based authorization middleware factory
 export function authorize(...allowedRoles: UserRole[]) {
   return (

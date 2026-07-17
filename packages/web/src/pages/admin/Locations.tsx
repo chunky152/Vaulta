@@ -9,10 +9,8 @@ import {
   Search,
   Edit,
   Trash2,
-  MoreVertical,
   Eye,
   Package,
-  AlertCircle,
 } from 'lucide-react';
 import type { StorageLocation } from '@/types';
 

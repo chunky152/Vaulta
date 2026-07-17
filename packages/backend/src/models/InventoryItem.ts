@@ -1,4 +1,4 @@
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model, Document, Types } from 'mongoose';
 
 export enum ItemCondition {
   EXCELLENT = 'EXCELLENT',
@@ -7,9 +7,9 @@ export enum ItemCondition {
   DAMAGED = 'DAMAGED',
 }
 
-interface IInventoryItem extends Document {
-  bookingId: string;
-  userId: string;
+export interface IInventoryItem extends Document {
+  bookingId: Types.ObjectId;
+  userId: Types.ObjectId;
   name: string;
   description?: string;
   category: string;
@@ -24,8 +24,8 @@ interface IInventoryItem extends Document {
 
 const inventoryItemSchema = new Schema<IInventoryItem>(
   {
-    bookingId: { type: 'objectId', required: true },
-    userId: { type: 'objectId', required: true },
+    bookingId: { type: Schema.Types.ObjectId, required: true },
+    userId: { type: Schema.Types.ObjectId, required: true },
     name: { type: String, required: true },
     description: String,
     category: { type: String, required: true },

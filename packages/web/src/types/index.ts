@@ -52,6 +52,8 @@ export interface Location {
   country: string;
   latitude: number;
   longitude: number;
+  contactPhone?: string;
+  contactEmail?: string;
   operatingHours: Record<string, { open?: string; close?: string; closed?: boolean }>;
   images: string[];
   amenities: string[];
@@ -60,6 +62,9 @@ export interface Location {
   isActive: boolean;
   isFeatured: boolean;
 }
+
+// Alias matching the backend's model name
+export type StorageLocation = Location;
 
 export interface LocationWithDistance extends Location {
   distance: number;

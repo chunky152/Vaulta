@@ -41,7 +41,7 @@ interface BookingState {
   clearError: () => void;
 }
 
-export const useBookingStore = create<BookingState>((set, get) => ({
+export const useBookingStore = create<BookingState>((set) => ({
   bookings: [],
   selectedBooking: null,
   selectedUnit: null,

@@ -1,9 +1,8 @@
-import { Booking, BookingStatus } from '../models/Booking.js';
+import { Booking, IBooking } from '../models/Booking.js';
 import { StorageUnit } from '../models/StorageUnit.js';
-import { StorageLocation } from '../models/StorageLocation.js';
-import { Transaction } from '../models/Transaction.js';
+import { LoyaltyTransaction } from '../models/LoyaltyTransaction.js';
 import { User } from '../models/User.js';
-import mongoose from 'mongoose';
+import mongoose, { FilterQuery } from 'mongoose';
 import {
   NotFoundError,
   ConflictError,
@@ -14,6 +13,7 @@ import {
   generateBookingNumber,
   generateAccessCode,
 } from '../utils/helpers.js';
+import { withTransaction } from '../config/database.js';
 import { pricingService } from './pricing.service.js';
 import { unitService } from './unit.service.js';
 import {
@@ -27,7 +27,7 @@ export class BookingService {
   async createBooking(
     userId: string,
     input: CreateBookingInput
-  ): Promise<Booking> {
+  ): Promise<IBooking> {
     const { unitId, startTime, endTime, notes } = input;
 
     // Check unit availability
@@ -50,33 +50,38 @@ export class BookingService {
       endTime
     );
 
-    // Generate unique booking number
-    let bookingNumber: string;
-    let attempts = 0;
-    do {
-      bookingNumber = generateBookingNumber();
-      const exists = await Booking.findOne({ bookingNumber });
-      if (!exists) break;
-      attempts++;
-    } while (attempts < 10);
-
     // Generate access code
     const accessCode = generateAccessCode();
 
-    // Create booking
-    const booking = await Booking.create({
-      bookingNumber,
-      userId: new mongoose.Types.ObjectId(userId),
-      unitId: new mongoose.Types.ObjectId(unitId),
-      startTime,
-      endTime,
-      totalPrice: priceCalculation.total,
-      currency: priceCalculation.currency,
-      accessCode,
-      notes,
-      status: 'PENDING',
-    });
-    
+    // Create booking; the unique index on bookingNumber guards against
+    // collisions, so retry on duplicate-key errors
+    let booking: IBooking | undefined;
+    for (let attempt = 0; attempt < 5 && !booking; attempt++) {
+      try {
+        booking = await Booking.create({
+          bookingNumber: generateBookingNumber(),
+          userId: new mongoose.Types.ObjectId(userId),
+          unitId: new mongoose.Types.ObjectId(unitId),
+          startTime,
+          endTime,
+          totalPrice: priceCalculation.total,
+          currency: priceCalculation.currency,
+          accessCode,
+          notes,
+          status: 'PENDING',
+        });
+      } catch (error) {
+        const dupKey = (error as { code?: number; keyPattern?: Record<string, unknown> });
+        if (dupKey.code !== 11000 || !dupKey.keyPattern?.bookingNumber) {
+          throw error;
+        }
+      }
+    }
+
+    if (!booking) {
+      throw new ConflictError('Could not generate a unique booking number');
+    }
+
     await booking.populate({
       path: 'unit',
       populate: {
@@ -89,7 +94,7 @@ export class BookingService {
   }
 
   // Get booking by ID
-  async getBookingById(bookingId: string, userId?: string): Promise<Booking> {
+  async getBookingById(bookingId: string, userId?: string): Promise<IBooking> {
     const booking = await Booking.findById(bookingId)
       .populate({
         path: 'unit',
@@ -116,7 +121,7 @@ export class BookingService {
   }
 
   // Get booking by booking number
-  async getBookingByNumber(bookingNumber: string): Promise<Booking> {
+  async getBookingByNumber(bookingNumber: string): Promise<IBooking> {
     const booking = await Booking.findOne({ bookingNumber })
       .populate({
         path: 'unit',
@@ -136,7 +141,7 @@ export class BookingService {
   async listUserBookings(
     userId: string,
     input: BookingListInput
-  ): Promise<{ bookings: Booking[]; total: number; totalPages: number }> {
+  ): Promise<{ bookings: IBooking[]; total: number; totalPages: number }> {
     const {
       status,
       unitId,
@@ -149,7 +154,9 @@ export class BookingService {
       limit,
     } = input;
 
-    const where: any = { userId: new mongoose.Types.ObjectId(userId) };
+    const where: FilterQuery<IBooking> = {
+      userId: new mongoose.Types.ObjectId(userId),
+    };
 
     if (status) {
       where.status = status;
@@ -157,10 +164,13 @@ export class BookingService {
 
     if (unitId) {
       where.unitId = new mongoose.Types.ObjectId(unitId);
-    }
-
-    if (locationId) {
-      where['unit.locationId'] = new mongoose.Types.ObjectId(locationId);
+    } else if (locationId) {
+      // unitId is a ref, not an embedded document, so filter by the
+      // location's unit ids
+      const unitIds = await StorageUnit.find({
+        locationId: new mongoose.Types.ObjectId(locationId),
+      }).distinct('_id');
+      where.unitId = { $in: unitIds };
     }
 
     if (startDate) {
@@ -194,7 +204,7 @@ export class BookingService {
   }
 
   // Confirm booking (after payment)
-  async confirmBooking(bookingId: string): Promise<Booking> {
+  async confirmBooking(bookingId: string): Promise<IBooking> {
     const booking = await Booking.findById(bookingId);
 
     if (!booking) {
@@ -209,7 +219,7 @@ export class BookingService {
 
     // Re-check availability before confirming
     const availability = await unitService.checkAvailability(
-      booking.unitId,
+      booking.unitId.toString(),
       booking.startTime,
       booking.endTime
     );
@@ -238,11 +248,15 @@ export class BookingService {
       }
     });
 
+    if (!updatedBooking) {
+      throw new NotFoundError('Booking');
+    }
+
     return updatedBooking;
   }
 
   // Check in to a booking
-  async checkIn(bookingId: string, userId: string): Promise<Booking> {
+  async checkIn(bookingId: string, userId: string): Promise<IBooking> {
     const booking = await this.getBookingById(bookingId, userId);
 
     if (booking.status !== 'CONFIRMED') {
@@ -263,11 +277,7 @@ export class BookingService {
       );
     }
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
-    
-    try {
-      // Update booking status
+    return withTransaction(async (session) => {
       const updated = await Booking.findByIdAndUpdate(
         bookingId,
         {
@@ -277,27 +287,22 @@ export class BookingService {
         { new: true, session }
       );
 
-      // Update unit status
+      if (!updated) {
+        throw new NotFoundError('Booking');
+      }
+
       await StorageUnit.findByIdAndUpdate(
         booking.unitId,
         { status: 'OCCUPIED' },
         { session }
       );
 
-      await session.commitTransaction();
       return updated;
-    } catch (error) {
-      await session.abortTransaction();
-      throw error;
-    } finally {
-      await session.endSession();
-    }
-
-    return updatedBooking;
+    });
   }
 
   // Check out from a booking
-  async checkOut(bookingId: string, userId: string): Promise<Booking> {
+  async checkOut(bookingId: string, userId: string): Promise<IBooking> {
     const booking = await this.getBookingById(bookingId, userId);
 
     if (booking.status !== 'ACTIVE') {
@@ -308,11 +313,7 @@ export class BookingService {
 
     const now = new Date();
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
-    
-    try {
-      // Update booking status
+    return withTransaction(async (session) => {
       const updated = await Booking.findByIdAndUpdate(
         bookingId,
         {
@@ -322,7 +323,10 @@ export class BookingService {
         { new: true, session }
       );
 
-      // Update unit status
+      if (!updated) {
+        throw new NotFoundError('Booking');
+      }
+
       await StorageUnit.findByIdAndUpdate(
         booking.unitId,
         { status: 'AVAILABLE' },
@@ -351,16 +355,8 @@ export class BookingService {
         );
       }
 
-      await session.commitTransaction();
       return updated;
-    } catch (error) {
-      await session.abortTransaction();
-      throw error;
-    } finally {
-      await session.endSession();
-    }
-
-    return updatedBooking;
+    });
   }
 
   // Extend booking duration
@@ -368,7 +364,7 @@ export class BookingService {
     bookingId: string,
     userId: string,
     input: ExtendBookingInput
-  ): Promise<{ booking: Booking; additionalPrice: number }> {
+  ): Promise<{ booking: IBooking; additionalPrice: number }> {
     const booking = await this.getBookingById(bookingId, userId);
 
     if (!['CONFIRMED', 'ACTIVE'].includes(booking.status)) {
@@ -383,7 +379,7 @@ export class BookingService {
 
     // Check availability for extension period
     const availability = await unitService.checkAvailability(
-      booking.unitId,
+      booking.unitId.toString(),
       booking.endTime,
       input.newEndTime
     );
@@ -396,7 +392,7 @@ export class BookingService {
 
     // Calculate additional price
     const extensionPrice = await pricingService.calculatePrice(
-      booking.unitId,
+      booking.unitId.toString(),
       booking.endTime,
       input.newEndTime
     );
@@ -410,6 +406,10 @@ export class BookingService {
       { new: true }
     );
 
+    if (!updatedBooking) {
+      throw new NotFoundError('Booking');
+    }
+
     return {
       booking: updatedBooking,
       additionalPrice: extensionPrice.total,
@@ -421,7 +421,7 @@ export class BookingService {
     bookingId: string,
     userId: string,
     reason?: string
-  ): Promise<Booking> {
+  ): Promise<IBooking> {
     const booking = await this.getBookingById(bookingId, userId);
 
     if (!['PENDING', 'CONFIRMED'].includes(booking.status)) {
@@ -430,10 +430,7 @@ export class BookingService {
       );
     }
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
-    
-    try {
+    return withTransaction(async (session) => {
       const updated = await Booking.findByIdAndUpdate(
         bookingId,
         {
@@ -443,6 +440,10 @@ export class BookingService {
         { new: true, session }
       );
 
+      if (!updated) {
+        throw new NotFoundError('Booking');
+      }
+
       // If unit was reserved, set back to available
       await StorageUnit.findByIdAndUpdate(
         booking.unitId,
@@ -450,16 +451,8 @@ export class BookingService {
         { session }
       );
 
-      await session.commitTransaction();
       return updated;
-    } catch (error) {
-      await session.abortTransaction();
-      throw error;
-    } finally {
-      await session.endSession();
-    }
-
-    return updatedBooking;
+    });
   }
 
   // Regenerate access code
@@ -485,7 +478,7 @@ export class BookingService {
   }
 
   // Get upcoming bookings (for reminders)
-  async getUpcomingBookings(hoursAhead: number = 24): Promise<Booking[]> {
+  async getUpcomingBookings(hoursAhead: number = 24): Promise<IBooking[]> {
     const now = new Date();
     const cutoff = new Date(now.getTime() + hoursAhead * 60 * 60 * 1000);
 
@@ -510,7 +503,7 @@ export class BookingService {
   }
 
   // Get expiring bookings (for auto-checkout reminders)
-  async getExpiringBookings(hoursAhead: number = 2): Promise<Booking[]> {
+  async getExpiringBookings(hoursAhead: number = 2): Promise<IBooking[]> {
     const now = new Date();
     const cutoff = new Date(now.getTime() + hoursAhead * 60 * 60 * 1000);
 
