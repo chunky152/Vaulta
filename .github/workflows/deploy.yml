@@ -56,6 +56,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # The frontend is useless without a real API URL baked in; fail
+      # loudly instead of shipping a bundle that calls its own origin.
+      - name: Check VITE_API_URL is configured
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+        run: |
+          if [ -z "$VITE_API_URL" ]; then
+            echo "::error::The VITE_API_URL repository variable is not set (Settings -> Secrets and variables -> Actions -> Variables). Set it to the backend URL + /api/v1."
+            exit 1
+          fi
+
       - name: Build
         run: npm run build -w @unbur/web
         env:
