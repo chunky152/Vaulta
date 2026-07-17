@@ -136,30 +136,6 @@ The API will be available at `http://localhost:3000` and the web app at `http://
 - `POST /api/v1/payments/create-intent` - Create payment intent
 - `POST /api/v1/payments/webhook` - Stripe webhook
 
-## Environment Variables
-
-### Backend
-
-```env
-NODE_ENV=development
-PORT=3000
-DATABASE_URL=mongodb://localhost:27017/unbur
-JWT_SECRET=your-jwt-secret
-JWT_REFRESH_SECRET=your-refresh-secret
-CORS_ORIGIN=http://localhost:5173
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-SENDGRID_API_KEY=SG....
-TWILIO_ACCOUNT_SID=...
-TWILIO_AUTH_TOKEN=...
-```
-
-### Frontend
-
-```env
-VITE_API_URL=http://localhost:3000/api/v1
-```
-
 ## Scripts
 
 ```bash
