@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
-import { useAuthStore } from '@/stores/auth.store';
+import { useAuthStore } from '@/features/auth/auth.store';
 import { api } from '@/services/api';
 import {
   User,

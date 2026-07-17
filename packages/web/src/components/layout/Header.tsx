@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '@/stores/auth.store';
+import { useAuthStore } from '@/features/auth/auth.store';
 import { Button } from '@/components/ui/Button';
 import { Logo } from '@/components/ui/Logo';
 import { LogOut, LayoutDashboard, Menu, X } from 'lucide-react';

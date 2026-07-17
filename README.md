@@ -38,22 +38,31 @@ unbur/
 │   │   └── src/          #   used by both backend and web
 │   ├── backend/          # @unbur/backend — Express.js API server
 │   │   └── src/
-│   │       ├── config/       # Configuration + DB helpers
-│   │       ├── controllers/  # Route handlers
-│   │       ├── middleware/   # Auth, validation, errors, rate limits
-│   │       ├── models/       # Mongoose models
-│   │       ├── routes/       # API routes
+│   │       ├── modules/      # Feature modules (controller + service +
+│   │       │   ├── auth/     #   routes + validator + Mongoose models
+│   │       │   ├── bookings/ #   per domain)
+│   │       │   ├── locations/
+│   │       │   ├── units/
+│   │       │   ├── inventory/
+│   │       │   ├── payments/
+│   │       │   ├── notifications/
+│   │       │   └── admin/
+│   │       ├── shared/       # Config, middleware, types, utils,
+│   │       │                 #   common validators
 │   │       ├── scripts/      # Seed script
-│   │       ├── services/     # Business logic
-│   │       ├── utils/        # Helpers
-│   │       └── validators/   # Zod schemas
+│   │       └── routes.ts     # Mounts all module routers
 │   └── web/              # @unbur/web — React frontend
 │       └── src/
-│           ├── components/   # UI components
-│           ├── hooks/        # React Query data hooks + custom hooks
-│           ├── pages/        # Route pages
+│           ├── features/     # Feature folders (pages + hooks + stores +
+│           │   ├── auth/     #   components per domain)
+│           │   ├── bookings/
+│           │   ├── locations/
+│           │   ├── inventory/
+│           │   └── admin/
+│           ├── components/   # Shared UI (ui/, layout/)
+│           ├── pages/        # Generic pages (Home, Dashboard, Profile…)
 │           ├── services/     # Axios API client
-│           ├── stores/       # Zustand auth store
+│           ├── lib/          # Query client, utils
 │           └── types/        # TypeScript types
 ├── scripts/              # Utility scripts
 └── .github/workflows/    # CI/CD pipelines
