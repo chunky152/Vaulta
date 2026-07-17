@@ -10,7 +10,7 @@ env:
 
 jobs:
   deploy-backend:
-    name: Deploy Backend
+    name: Deploy Backend (Render)
     runs-on: ubuntu-latest
     environment: production
 
@@ -30,21 +30,16 @@ jobs:
       - name: Build
         run: npm run build -w @unbur/backend
 
-      # Deploy to Railway (recommended)
-      - name: Deploy to Railway
-        if: ${{ vars.DEPLOY_TARGET == 'railway' }}
-        run: npx -y @railway/cli up --service backend --ci
+      # Render builds from the repo itself; the hook just tells it to pull
+      # and redeploy. Skips (instead of failing) until the secret is set.
+      - name: Trigger Render deploy
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-
-      # Alternative: Deploy to Render
-      - name: Deploy to Render
-        if: ${{ vars.DEPLOY_TARGET == 'render' }}
-        run: |
-          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        if: ${{ env.RENDER_DEPLOY_HOOK != '' }}
+        run: curl --fail -X POST "$RENDER_DEPLOY_HOOK"
 
   deploy-frontend:
-    name: Deploy Frontend
+    name: Deploy Frontend (Cloudflare Pages)
     runs-on: ubuntu-latest
     environment: production
 
@@ -66,31 +61,11 @@ jobs:
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
 
-      # Deploy to Vercel (recommended for frontend)
-      - name: Deploy to Vercel
-        if: ${{ vars.DEPLOY_TARGET_FRONTEND == 'vercel' }}
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: packages/web
-          vercel-args: '--prod'
-
-      # Alternative: Deploy to Netlify
-      - name: Deploy to Netlify
-        if: ${{ vars.DEPLOY_TARGET_FRONTEND == 'netlify' }}
-        uses: nwtgck/actions-netlify@v2.1
-        with:
-          publish-dir: packages/web/dist
-          production-deploy: true
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-
-      # Alternative: Deploy to Cloudflare Pages
+      # Skips (instead of failing) until the Cloudflare secrets are set.
       - name: Deploy to Cloudflare Pages
-        if: ${{ vars.DEPLOY_TARGET_FRONTEND == 'cloudflare' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
         uses: cloudflare/pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
