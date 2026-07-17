@@ -1,22 +1,24 @@
-// API Response types
-export interface ApiResponse<T = unknown> {
-  success: boolean;
-  message?: string;
-  data?: T;
-  error?: string;
-  errors?: Record<string, string[]>;
-}
+// Wire-level types shared with the backend live in @unbur/shared;
+// re-exported here so pages keep a single import location.
+export type {
+  ApiResponse,
+  PaginatedResponse,
+  AuthTokens,
+  UserRole,
+  UnitSize,
+  UnitStatus,
+  BookingStatus,
+  ItemCondition,
+  PriceAdjustment,
+} from '@unbur/shared';
 
-export interface PaginatedResponse<T> extends ApiResponse<T[]> {
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-    hasNext: boolean;
-    hasPrev: boolean;
-  };
-}
+import type {
+  UserRole,
+  UnitSize,
+  UnitStatus,
+  BookingStatus,
+  ItemCondition,
+} from '@unbur/shared';
 
 // User types
 export interface User {
@@ -25,19 +27,13 @@ export interface User {
   firstName?: string;
   lastName?: string;
   phone?: string;
-  role: 'CUSTOMER' | 'ADMIN' | 'SUPER_ADMIN';
+  role: UserRole;
   emailVerified: boolean;
   phoneVerified: boolean;
   profileImageUrl?: string;
   referralCode: string;
   loyaltyPoints: number;
   createdAt: string;
-}
-
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
 }
 
 // Location types
@@ -73,9 +69,6 @@ export interface LocationWithDistance extends Location {
 }
 
 // Unit types
-export type UnitSize = 'SMALL' | 'MEDIUM' | 'LARGE' | 'XL';
-export type UnitStatus = 'AVAILABLE' | 'OCCUPIED' | 'MAINTENANCE' | 'RESERVED';
-
 export interface StorageUnit {
   id: string;
   locationId: string;
@@ -99,8 +92,6 @@ export interface UnitAvailability {
 }
 
 // Booking types
-export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
-
 export interface Booking {
   id: string;
   bookingNumber: string;
@@ -121,23 +112,7 @@ export interface Booking {
 }
 
 // Pricing types
-export interface PriceCalculation {
-  basePrice: number;
-  duration: number;
-  durationType: 'hourly' | 'daily' | 'monthly';
-  adjustments: PriceAdjustment[];
-  subtotal: number;
-  tax: number;
-  total: number;
-  currency: string;
-}
-
-export interface PriceAdjustment {
-  name: string;
-  type: 'discount' | 'surcharge';
-  amount: number;
-  percentage?: number;
-}
+export type { BookingPriceCalculation as PriceCalculation } from '@unbur/shared';
 
 // Notification types
 export interface Notification {
@@ -180,8 +155,6 @@ export interface BookingSearchParams {
 }
 
 // Inventory types
-export type ItemCondition = 'EXCELLENT' | 'GOOD' | 'FAIR' | 'DAMAGED';
-
 export const ITEM_CATEGORIES = [
   'Electronics',
   'Furniture',

@@ -1,5 +1,15 @@
 import { Request } from 'express';
-import { UserRole } from '../models/User.js';
+import { UserRole } from '@unbur/shared';
+
+// Wire-level types shared with the web app live in @unbur/shared;
+// re-exported here so existing imports keep working.
+export type {
+  ApiResponse,
+  PaginatedResponse,
+  AuthTokens,
+  PriceAdjustment,
+  BookingPriceCalculation,
+} from '@unbur/shared';
 
 // ============================================
 // Express Extended Types
@@ -13,29 +23,6 @@ export interface AuthenticatedUser {
 
 export interface AuthenticatedRequest extends Request {
   user?: AuthenticatedUser;
-}
-
-// ============================================
-// API Response Types
-// ============================================
-
-export interface ApiResponse<T = unknown> {
-  success: boolean;
-  message?: string;
-  data?: T;
-  error?: string;
-  errors?: Record<string, string[]>;
-}
-
-export interface PaginatedResponse<T> extends ApiResponse<T[]> {
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-    hasNext: boolean;
-    hasPrev: boolean;
-  };
 }
 
 // ============================================
@@ -79,12 +66,6 @@ export interface TokenPayload {
   userId: string;
   email: string;
   role: UserRole;
-}
-
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
 }
 
 export interface RegisterInput {
@@ -180,24 +161,6 @@ export interface CreateBookingInput {
   startTime: Date;
   endTime: Date;
   notes?: string;
-}
-
-export interface BookingPriceCalculation {
-  basePrice: number;
-  duration: number; // in hours
-  durationType: 'hourly' | 'daily' | 'monthly';
-  adjustments: PriceAdjustment[];
-  subtotal: number;
-  tax: number;
-  total: number;
-  currency: string;
-}
-
-export interface PriceAdjustment {
-  name: string;
-  type: 'discount' | 'surcharge';
-  amount: number;
-  percentage?: number;
 }
 
 // ============================================

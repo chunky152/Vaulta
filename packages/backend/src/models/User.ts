@@ -1,10 +1,8 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
-export enum UserRole {
-  CUSTOMER = 'CUSTOMER',
-  ADMIN = 'ADMIN',
-  SUPER_ADMIN = 'SUPER_ADMIN',
-}
+import { UserRole } from '@unbur/shared';
+
+export { UserRole };
 
 interface IUser extends Document {
   email: string;

@@ -1,11 +1,8 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
-export enum ItemCondition {
-  EXCELLENT = 'EXCELLENT',
-  GOOD = 'GOOD',
-  FAIR = 'FAIR',
-  DAMAGED = 'DAMAGED',
-}
+import { ItemCondition } from '@unbur/shared';
+
+export { ItemCondition };
 
 export interface IInventoryItem extends Document {
   bookingId: Types.ObjectId;
