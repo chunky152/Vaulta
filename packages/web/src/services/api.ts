@@ -2,7 +2,8 @@ import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'ax
 import { useAuthStore } from '@/stores/auth.store';
 import type { ApiResponse, AuthTokens } from '@/types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? '/api/v1';
+// `||` (not `??`) so an empty VITE_API_URL also falls back
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 // Create axios instance
 const api: AxiosInstance = axios.create({
