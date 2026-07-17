@@ -1,8 +1,6 @@
-import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
-import { useLocationStore } from '@/stores/location.store';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { LocationMap } from '@/components/map/LocationMap';
 import {
@@ -17,13 +15,6 @@ import {
 export function HomePage() {
   const navigate = useNavigate();
   const { position, isLoading: geoLoading } = useGeolocation();
-  const { setUserPosition } = useLocationStore();
-
-  useEffect(() => {
-    if (position) {
-      setUserPosition(position);
-    }
-  }, [position, setUserPosition]);
 
   const handleQuickSearch = () => {
     if (position) {

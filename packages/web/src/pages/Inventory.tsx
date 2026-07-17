@@ -1,10 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { useInventoryStore } from '@/stores/inventory.store';
-import { useBookingStore } from '@/stores/booking.store';
+import {
+  useInventory,
+  useInventorySummary,
+  useDeleteInventoryItem,
+} from '@/hooks/useInventory';
+import { useMyBookings } from '@/hooks/useBookings';
 import { AddInventoryItemModal } from '@/components/inventory/AddInventoryItemModal';
 import { InventoryItemCard } from '@/components/inventory/InventoryItemCard';
 import { ITEM_CATEGORIES } from '@/types';
@@ -19,48 +23,31 @@ import {
 } from 'lucide-react';
 
 export function InventoryPage() {
-  const {
-    items,
-    summary,
-    isLoading,
-    error,
-    pagination,
-    fetchAllInventory,
-    fetchSummary,
-    deleteItem,
-  } = useInventoryStore();
-
-  const { bookings, fetchUserBookings } = useBookingStore();
-
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedBookingId, setSelectedBookingId] = useState<string>('');
+
+  // The query re-runs automatically when the filters change
+  const { items, isLoading, error, pagination } = useInventory({
+    ...(selectedCategory ? { category: selectedCategory } : {}),
+    ...(searchQuery ? { search: searchQuery } : {}),
+  });
+  const { summary } = useInventorySummary();
+  const { bookings } = useMyBookings();
+  const deleteItem = useDeleteInventoryItem();
 
   // Get active/confirmed bookings for adding items
   const activeBookings = bookings.filter(
     (b) => b.status === 'ACTIVE' || b.status === 'CONFIRMED'
   );
 
-  useEffect(() => {
-    fetchAllInventory();
-    fetchSummary();
-    fetchUserBookings();
-  }, [fetchAllInventory, fetchSummary, fetchUserBookings]);
-
-  useEffect(() => {
-    const params: { category?: string; search?: string } = {};
-    if (selectedCategory) params.category = selectedCategory;
-    if (searchQuery) params.search = searchQuery;
-    fetchAllInventory(params);
-  }, [selectedCategory, searchQuery, fetchAllInventory]);
-
   const handleDeleteItem = async (itemId: string) => {
     if (confirm('Are you sure you want to delete this item?')) {
       try {
-        await deleteItem(itemId);
-      } catch (error) {
-        console.error('Failed to delete item:', error);
+        await deleteItem.mutateAsync(itemId);
+      } catch {
+        // Error surfaced via toast
       }
     }
   };

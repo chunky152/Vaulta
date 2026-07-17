@@ -6,7 +6,8 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
-import { useBookingStore } from '@/stores/booking.store';
+import { useCreateBooking } from '@/hooks/useBookings';
+import { getErrorMessage } from '@/services/api';
 import { api } from '@/services/api';
 import { MapPin, Calendar, Clock, Shield, Thermometer, AlertCircle } from 'lucide-react';
 import type { StorageUnit, StorageLocation } from '@/types';
@@ -31,7 +32,9 @@ const sizeLabels: Record<string, string> = {
 export function BookingPage() {
   const { unitId } = useParams<{ unitId: string }>();
   const navigate = useNavigate();
-  const { createBooking, isLoading, error, clearError } = useBookingStore();
+  const createBooking = useCreateBooking();
+  const isLoading = createBooking.isPending;
+  const error = createBooking.error ? getErrorMessage(createBooking.error) : null;
   const [unit, setUnit] = useState<StorageUnit | null>(null);
   const [location, setLocation] = useState<StorageLocation | null>(null);
   const [priceEstimate, setPriceEstimate] = useState<{
@@ -110,11 +113,10 @@ export function BookingPage() {
     if (!unitId) return;
 
     try {
-      clearError();
       const startTime = new Date(`${data.startDate}T${data.startTime}`);
       const endTime = new Date(`${data.endDate}T${data.endTime}`);
 
-      const booking = await createBooking({
+      const booking = await createBooking.mutateAsync({
         unitId,
         startTime,
         endTime,
@@ -123,7 +125,7 @@ export function BookingPage() {
 
       navigate(`/checkout/${booking.id}`);
     } catch {
-      // Error handled by store
+      // Error surfaced via toast and the inline error block
     }
   };
 
