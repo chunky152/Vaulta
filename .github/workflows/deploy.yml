@@ -33,10 +33,9 @@ jobs:
       # Deploy to Railway (recommended)
       - name: Deploy to Railway
         if: ${{ vars.DEPLOY_TARGET == 'railway' }}
-        uses: bervProject/railway-deploy@v1.0.0
-        with:
-          railway_token: ${{ secrets.RAILWAY_TOKEN }}
-          service: backend
+        run: npx -y @railway/cli up --service backend --ci
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
       # Alternative: Deploy to Render
       - name: Deploy to Render
