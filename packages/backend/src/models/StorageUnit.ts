@@ -14,7 +14,7 @@ export enum UnitStatus {
   RESERVED = 'RESERVED',
 }
 
-interface IStorageUnit extends Document {
+export interface IStorageUnit extends Document {
   locationId: Types.ObjectId;
   unitNumber: string;
   name?: string;

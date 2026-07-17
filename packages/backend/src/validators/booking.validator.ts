@@ -1,9 +1,10 @@
 import { z } from 'zod';
+import { objectId } from './common.validator.js';
 import { BookingStatus } from '../models/Booking.js';
 
 // Create booking schema
 export const createBookingSchema = z.object({
-  unitId: z.string().uuid('Invalid unit ID'),
+  unitId: objectId('Invalid unit ID'),
   startTime: z.coerce.date(),
   endTime: z.coerce.date(),
   notes: z.string().max(1000, 'Notes must be less than 1000 characters').optional(),
@@ -55,8 +56,8 @@ export type CancelBookingInput = z.infer<typeof cancelBookingSchema>;
 // Booking search/list schema (query params)
 export const bookingListSchema = z.object({
   status: z.nativeEnum(BookingStatus).optional(),
-  unitId: z.string().uuid().optional(),
-  locationId: z.string().uuid().optional(),
+  unitId: objectId().optional(),
+  locationId: objectId().optional(),
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
   sortBy: z.enum(['startTime', 'endTime', 'createdAt', 'totalPrice']).default('createdAt'),
@@ -69,14 +70,14 @@ export type BookingListInput = z.infer<typeof bookingListSchema>;
 
 // Admin booking list schema (includes user filter)
 export const adminBookingListSchema = bookingListSchema.extend({
-  userId: z.string().uuid().optional(),
+  userId: objectId().optional(),
 });
 
 export type AdminBookingListInput = z.infer<typeof adminBookingListSchema>;
 
 // Booking ID param schema
 export const bookingIdSchema = z.object({
-  id: z.string().uuid('Invalid booking ID'),
+  id: objectId('Invalid booking ID'),
 });
 
 export type BookingIdInput = z.infer<typeof bookingIdSchema>;
@@ -98,7 +99,7 @@ export type QRVerificationInput = z.infer<typeof qrVerificationSchema>;
 
 // Price calculation schema
 export const priceCalculationSchema = z.object({
-  unitId: z.string().uuid('Invalid unit ID'),
+  unitId: objectId('Invalid unit ID'),
   startTime: z.coerce.date(),
   endTime: z.coerce.date(),
 }).refine(

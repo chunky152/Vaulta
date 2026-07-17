@@ -2,7 +2,7 @@ import Stripe from 'stripe';
 import { Transaction } from '../models/Transaction.js';
 import { Booking } from '../models/Booking.js';
 import { StorageUnit } from '../models/StorageUnit.js';
-import { User } from '../models/User.js';
+
 import mongoose from 'mongoose';
 import { config } from '../config/index.js';
 import { NotFoundError, ValidationError, AppError } from '../types/index.js';
@@ -112,7 +112,7 @@ export class PaymentService {
         signature,
         config.stripe.webhookSecret
       );
-    } catch (err) {
+    } catch {
       throw new ValidationError(`Webhook signature verification failed`);
     }
 

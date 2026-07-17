@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { locationController } from '../controllers/location.controller.js';
-import { authenticate, adminOnly, optionalAuth } from '../middleware/auth.middleware.js';
+import { authenticate, adminOnly } from '../middleware/auth.middleware.js';
 import { validate } from '../middleware/validation.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 import {

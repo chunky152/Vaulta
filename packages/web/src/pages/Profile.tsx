@@ -9,7 +9,6 @@ import { useAuthStore } from '@/stores/auth.store';
 import { api } from '@/services/api';
 import {
   User,
-  Mail,
   Phone,
   Shield,
   Bell,
@@ -45,7 +44,7 @@ type ProfileFormData = z.infer<typeof profileSchema>;
 type PasswordFormData = z.infer<typeof passwordSchema>;
 
 export function ProfilePage() {
-  const { user, updateUser } = useAuthStore();
+  const { user, setUser } = useAuthStore();
   const [isUpdating, setIsUpdating] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState(false);
@@ -83,7 +82,7 @@ export function ProfilePage() {
 
     try {
       const response = await api.put('/auth/me', data);
-      updateUser(response.data.data);
+      setUser(response.data.data.user);
       setProfileSuccess(true);
       setTimeout(() => setProfileSuccess(false), 3000);
     } catch (err: any) {

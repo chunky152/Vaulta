@@ -11,7 +11,7 @@ export enum BookingStatus {
 
 import { Types } from 'mongoose';
 
-interface IBooking extends Document {
+export interface IBooking extends Document {
   bookingNumber: string;
   userId: Types.ObjectId;
   unitId: Types.ObjectId;
@@ -51,7 +51,6 @@ const bookingSchema = new Schema<IBooking>(
 bookingSchema.index({ userId: 1 });
 bookingSchema.index({ unitId: 1 });
 bookingSchema.index({ status: 1 });
-bookingSchema.index({ bookingNumber: 1 });
 bookingSchema.index({ startTime: 1, endTime: 1 });
 
 export const Booking = model<IBooking>('Booking', bookingSchema);

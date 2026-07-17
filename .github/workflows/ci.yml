@@ -17,7 +17,7 @@ jobs:
         ports:
           - 27017:27017
         options: >-
-          --health-cmd "mongo --eval 'db.adminCommand(\"ping\")'"
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -42,7 +42,7 @@ jobs:
         run: npm run test -w @unbur/backend
         env:
           NODE_ENV: test
-          DATABASE_URL: mongodb+srv://chunky:VndCnt32lXmX72x2@cluster0.tiyq5ei.mongodb.net/?appName=Cluster0
+          DATABASE_URL: mongodb://localhost:27017/unbur-test
           JWT_SECRET: test-secret-key
           JWT_REFRESH_SECRET: test-refresh-secret-key
           JWT_EXPIRES_IN: 15m

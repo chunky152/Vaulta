@@ -1,4 +1,4 @@
-import { User, UserRole } from '../models/User.js';
+import { User } from '../models/User.js';
 import { RefreshToken } from '../models/RefreshToken.js';
 import { LoyaltyTransaction } from '../models/LoyaltyTransaction.js';
 import { messagingService } from './messaging.service.js';
@@ -186,10 +186,10 @@ export class AuthService {
 
   // Refresh access token
   async refreshToken(refreshToken: string): Promise<AuthTokens> {
-    // Verify the refresh token
-    let payload;
+    // Verify the refresh token signature/expiry; the payload itself comes
+    // from the stored token below
     try {
-      payload = verifyRefreshToken(refreshToken);
+      verifyRefreshToken(refreshToken);
     } catch {
       throw new AuthenticationError('Invalid or expired refresh token');
     }
@@ -348,13 +348,13 @@ export class AuthService {
   }
 
   // Reset password
-  async resetPassword(token: string, newPassword: string): Promise<void> {
+  async resetPassword(_token: string, _newPassword: string): Promise<void> {
     // TODO: Implement password reset token validation
     throw new ValidationError('Password reset functionality requires email service integration');
   }
 
   // Verify email (placeholder - needs email service integration)
-  async verifyEmail(token: string): Promise<void> {
+  async verifyEmail(_token: string): Promise<void> {
     // TODO: Implement email verification token validation
     throw new ValidationError('Email verification functionality requires email service integration');
   }

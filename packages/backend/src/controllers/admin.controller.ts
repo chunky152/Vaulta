@@ -11,7 +11,6 @@ export class AdminController {
   async getDashboardStats(req: AuthenticatedRequest, res: Response): Promise<void> {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
     const [
       totalUsers,

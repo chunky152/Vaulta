@@ -1,7 +1,7 @@
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model, Document, Types } from 'mongoose';
 
-interface INotification extends Document {
-  userId: string;
+export interface INotification extends Document {
+  userId: Types.ObjectId;
   type: 'EMAIL' | 'SMS' | 'PUSH';
   category: 'BOOKING' | 'PAYMENT' | 'REMINDER' | 'PROMO' | 'SYSTEM';
   title: string;
@@ -14,7 +14,7 @@ interface INotification extends Document {
 
 const notificationSchema = new Schema<INotification>(
   {
-    userId: { type: 'objectId', required: true },
+    userId: { type: Schema.Types.ObjectId, required: true },
     type: { type: String, enum: ['EMAIL', 'SMS', 'PUSH'], required: true },
     category: { type: String, enum: ['BOOKING', 'PAYMENT', 'REMINDER', 'PROMO', 'SYSTEM'], required: true },
     title: { type: String, required: true },

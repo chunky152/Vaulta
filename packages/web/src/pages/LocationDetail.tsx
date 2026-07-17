@@ -49,7 +49,13 @@ const amenityIcons: Record<string, React.ReactNode> = {
 export function LocationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentLocation, units, fetchLocationById, fetchLocationUnits, isLoading } = useLocationStore();
+  const {
+    selectedLocation: currentLocation,
+    locationUnits: units,
+    fetchLocationById,
+    fetchLocationUnits,
+    isLoading,
+  } = useLocationStore();
   const { isAuthenticated } = useAuthStore();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
@@ -244,12 +250,12 @@ export function LocationDetailPage() {
                             </div>
                           )}
                           <div className="flex gap-2 mt-2">
-                            {unit.features?.climateControlled && (
+                            {unit.features?.includes('climate_controlled') && (
                               <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
                                 Climate Controlled
                               </span>
                             )}
-                            {unit.features?.secure && (
+                            {unit.features?.includes('secure') && (
                               <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
                                 Secure
                               </span>
@@ -343,7 +349,9 @@ export function LocationDetailPage() {
                       <div key={day} className="flex justify-between">
                         <span className="capitalize">{day}</span>
                         <span className="text-muted-foreground">
-                          {hours === 'closed' ? 'Closed' : hours}
+                          {hours.closed || !hours.open || !hours.close
+                            ? 'Closed'
+                            : `${hours.open} – ${hours.close}`}
                         </span>
                       </div>
                     ))}

@@ -1,7 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
+import mongoose from 'mongoose';
 import { AppError, ApiResponse } from '../types/index.js';
-import { config, isDevelopment } from '../config/index.js';
+import { isDevelopment } from '../config/index.js';
 
 // Not found handler
 export function notFoundHandler(
@@ -59,34 +60,44 @@ export function errorHandler(
     return;
   }
 
-  // Handle Prisma errors
-  if (error.name === 'PrismaClientKnownRequestError') {
-    const prismaError = error as { code?: string; meta?: { target?: string[] } };
-
-    let message = 'Database error';
-    let statusCode = 500;
-
-    switch (prismaError.code) {
-      case 'P2002':
-        message = `Duplicate entry for ${prismaError.meta?.target?.join(', ') ?? 'field'}`;
-        statusCode = 409;
-        break;
-      case 'P2025':
-        message = 'Record not found';
-        statusCode = 404;
-        break;
-      case 'P2003':
-        message = 'Foreign key constraint failed';
-        statusCode = 400;
-        break;
+  // Handle Mongoose validation errors
+  if (error instanceof mongoose.Error.ValidationError) {
+    const errors: Record<string, string[]> = {};
+    for (const [path, err] of Object.entries(error.errors)) {
+      errors[path] = [err.message];
     }
 
     const response: ApiResponse = {
       success: false,
-      error: message,
+      error: 'Validation failed',
+      errors,
     };
 
-    res.status(statusCode).json(response);
+    res.status(400).json(response);
+    return;
+  }
+
+  // Handle Mongoose cast errors (malformed ObjectId, etc.)
+  if (error instanceof mongoose.Error.CastError) {
+    const response: ApiResponse = {
+      success: false,
+      error: `Invalid value for ${error.path}`,
+    };
+
+    res.status(400).json(response);
+    return;
+  }
+
+  // Handle MongoDB duplicate key errors
+  const mongoError = error as Error & { code?: number; keyValue?: Record<string, unknown> };
+  if (mongoError.code === 11000) {
+    const fields = Object.keys(mongoError.keyValue ?? {}).join(', ') || 'field';
+    const response: ApiResponse = {
+      success: false,
+      error: `Duplicate entry for ${fields}`,
+    };
+
+    res.status(409).json(response);
     return;
   }
 
@@ -120,11 +131,13 @@ export function errorHandler(
   res.status(500).json(response);
 }
 
-// Async handler wrapper to catch errors in async route handlers
-export function asyncHandler(
-  fn: (req: Request, res: Response, next: NextFunction) => Promise<void>
+// Async handler wrapper to catch errors in async route handlers.
+// Generic so controllers can type req more narrowly than express.Request
+// (e.g. AuthenticatedRequest with a validated body/query).
+export function asyncHandler<Req extends Request = Request>(
+  fn: (req: Req, res: Response, next: NextFunction) => Promise<void>
 ) {
   return (req: Request, res: Response, next: NextFunction): void => {
-    Promise.resolve(fn(req, res, next)).catch(next);
+    Promise.resolve(fn(req as Req, res, next)).catch(next);
   };
 }

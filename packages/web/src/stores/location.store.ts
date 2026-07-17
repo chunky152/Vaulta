@@ -34,7 +34,7 @@ interface LocationState {
   clearError: () => void;
 }
 
-export const useLocationStore = create<LocationState>((set, get) => ({
+export const useLocationStore = create<LocationState>((set) => ({
   locations: [],
   featuredLocations: [],
   selectedLocation: null,

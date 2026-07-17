@@ -1,8 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import type { LocationWithDistance } from '@/types';
-import { formatDistance, formatCurrency } from '@/lib/utils';
+import { formatDistance } from '@/lib/utils';
 
 // Fix for default marker icons in React-Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;

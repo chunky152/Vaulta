@@ -4,7 +4,6 @@ import { Notification } from '../models/Notification.js';
 import { NotificationPreference } from '../models/NotificationPreference.js';
 import { Booking } from '../models/Booking.js';
 import { User } from '../models/User.js';
-import mongoose from 'mongoose';
 import { config } from '../config/index.js';
 
 // Notification enums
@@ -188,7 +187,6 @@ export class NotificationService {
 
     const unit = (booking as any).unitId;
     const location = unit?.locationId;
-    const bookingUser = (booking as any).userId;
 
     const message = `Your booking at ${location?.name} has been confirmed.
 Booking Number: ${(booking as any).bookingNumber}

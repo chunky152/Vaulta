@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import { AuthenticatedRequest, ApiResponse, PaginatedResponse } from '../types/index.js';
+import { requireUser } from '../middleware/auth.middleware.js';
 import { bookingService } from '../services/booking.service.js';
 import { pricingService } from '../services/pricing.service.js';
 import { generateQRCodeDataURL } from '../utils/qrcode.js';
@@ -17,12 +18,9 @@ export class BookingController {
     req: AuthenticatedRequest & { body: CreateBookingInput },
     res: Response
   ): Promise<void> {
-    if (!req.user) {
-      res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
+    const user = requireUser(req);
 
-    const booking = await bookingService.createBooking(req.user.id, req.body);
+    const booking = await bookingService.createBooking(user.id, req.body);
 
     const response: ApiResponse = {
       success: true,
@@ -38,12 +36,9 @@ export class BookingController {
     req: AuthenticatedRequest & { query: BookingListInput },
     res: Response
   ): Promise<void> {
-    if (!req.user) {
-      res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
+    const user = requireUser(req);
 
-    const result = await bookingService.listUserBookings(req.user.id, req.query);
+    const result = await bookingService.listUserBookings(user.id, req.query);
 
     const response: PaginatedResponse<typeof result.bookings[0]> = {
       success: true,
@@ -63,17 +58,10 @@ export class BookingController {
 
   // Get booking by ID
   async getBookingById(req: AuthenticatedRequest, res: Response): Promise<void> {
-    if (!req.user) {
-      res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
-
+    const user = requireUser(req);
     const { id } = req.params;
 
-    const booking = await bookingService.getBookingById(
-      id as string,
-      req.user.id
-    );
+    const booking = await bookingService.getBookingById(id as string, user.id);
 
     const response: ApiResponse = {
       success: true,
@@ -90,7 +78,7 @@ export class BookingController {
     const booking = await bookingService.getBookingByNumber(bookingNumber as string);
 
     // Only return public info if not authenticated as the owner
-    if (!req.user || req.user.id !== booking.userId) {
+    if (!req.user || req.user.id !== booking.userId.toString()) {
       const response: ApiResponse = {
         success: true,
         data: {
@@ -137,14 +125,10 @@ export class BookingController {
 
   // Check in to booking
   async checkIn(req: AuthenticatedRequest, res: Response): Promise<void> {
-    if (!req.user) {
-      res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
-
+    const user = requireUser(req);
     const { id } = req.params;
 
-    const booking = await bookingService.checkIn(id as string, req.user.id);
+    const booking = await bookingService.checkIn(id as string, user.id);
 
     const response: ApiResponse = {
       success: true,
@@ -157,14 +141,10 @@ export class BookingController {
 
   // Check out from booking
   async checkOut(req: AuthenticatedRequest, res: Response): Promise<void> {
-    if (!req.user) {
-      res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
-
+    const user = requireUser(req);
     const { id } = req.params;
 
-    const booking = await bookingService.checkOut(id as string, req.user.id);
+    const booking = await bookingService.checkOut(id as string, user.id);
 
     const response: ApiResponse = {
       success: true,
@@ -180,16 +160,12 @@ export class BookingController {
     req: AuthenticatedRequest & { body: ExtendBookingInput },
     res: Response
   ): Promise<void> {
-    if (!req.user) {
-      res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
-
+    const user = requireUser(req);
     const { id } = req.params;
 
     const result = await bookingService.extendBooking(
       id as string,
-      req.user.id,
+      user.id,
       req.body
     );
 
@@ -210,17 +186,13 @@ export class BookingController {
     req: AuthenticatedRequest & { body: CancelBookingInput },
     res: Response
   ): Promise<void> {
-    if (!req.user) {
-      res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
-
+    const user = requireUser(req);
     const { id } = req.params;
     const { reason } = req.body;
 
     const booking = await bookingService.cancelBooking(
       id as string,
-      req.user.id,
+      user.id,
       reason
     );
 
@@ -235,17 +207,10 @@ export class BookingController {
 
   // Get access code
   async getAccessCode(req: AuthenticatedRequest, res: Response): Promise<void> {
-    if (!req.user) {
-      res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
-
+    const user = requireUser(req);
     const { id } = req.params;
 
-    const booking = await bookingService.getBookingById(
-      id as string,
-      req.user.id
-    );
+    const booking = await bookingService.getBookingById(id as string, user.id);
 
     const response: ApiResponse = {
       success: true,
@@ -257,16 +222,12 @@ export class BookingController {
 
   // Regenerate access code
   async regenerateAccessCode(req: AuthenticatedRequest, res: Response): Promise<void> {
-    if (!req.user) {
-      res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
-
+    const user = requireUser(req);
     const { id } = req.params;
 
     const accessCode = await bookingService.regenerateAccessCode(
       id as string,
-      req.user.id
+      user.id
     );
 
     const response: ApiResponse = {
@@ -280,17 +241,10 @@ export class BookingController {
 
   // Get QR code for booking
   async getQRCode(req: AuthenticatedRequest, res: Response): Promise<void> {
-    if (!req.user) {
-      res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
-
+    const user = requireUser(req);
     const { id } = req.params;
 
-    const booking = await bookingService.getBookingById(
-      id as string,
-      req.user.id
-    );
+    const booking = await bookingService.getBookingById(id as string, user.id);
 
     const qrData = {
       type: 'booking' as const,

@@ -18,6 +18,26 @@ export async function disconnectDatabase(): Promise<void> {
   console.log('MongoDB disconnected');
 }
 
+// Run a callback inside a MongoDB transaction, committing on success
+// and aborting on error
+export async function withTransaction<T>(
+  fn: (session: mongoose.ClientSession) => Promise<T>
+): Promise<T> {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const result = await fn(session);
+    await session.commitTransaction();
+    return result;
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    await session.endSession();
+  }
+}
+
 // Health check
 export async function checkDatabaseHealth(): Promise<boolean> {
   try {

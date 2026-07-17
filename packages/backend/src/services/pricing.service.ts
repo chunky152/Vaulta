@@ -1,6 +1,5 @@
-import { StorageUnit } from '../models/StorageUnit.js';
+import { StorageUnit, IStorageUnit } from '../models/StorageUnit.js';
 import { PricingRule as PricingRuleModel } from '../models/PricingRule.js';
-import mongoose from 'mongoose';
 import { BookingPriceCalculation, PriceAdjustment, NotFoundError } from '../types/index.js';
 import { calculateDuration, determinePricingType } from '../utils/helpers.js';
 
@@ -37,21 +36,21 @@ export class PricingService {
     let basePrice: number;
     switch (pricingType) {
       case 'hourly':
-        basePrice = (unit as any).basePriceHourly * duration.hours;
+        basePrice = unit.basePriceHourly * duration.hours;
         break;
       case 'daily':
-        basePrice = (unit as any).basePriceDaily * duration.days;
+        basePrice = unit.basePriceDaily * duration.days;
         break;
       case 'monthly':
-        basePrice = ((unit as any).basePriceMonthly ?? (unit as any).basePriceDaily * 30) * duration.months;
+        basePrice = (unit.basePriceMonthly ?? unit.basePriceDaily * 30) * duration.months;
         break;
       default:
-        basePrice = (unit as any).basePriceHourly * duration.hours;
+        basePrice = unit.basePriceHourly * duration.hours;
     }
 
     // Get applicable pricing rules
     const adjustments = await this.getApplicablePriceAdjustments(
-      unit as any,
+      unit,
       startTime,
       endTime,
       basePrice
@@ -68,7 +67,7 @@ export class PricingService {
     }
 
     // Ensure minimum price
-    subtotal = Math.max(subtotal, (unit as any).basePriceHourly);
+    subtotal = Math.max(subtotal, unit.basePriceHourly);
 
     // Calculate tax (configurable, defaulting to 10%)
     const taxRate = 0.10;
@@ -85,13 +84,13 @@ export class PricingService {
       subtotal: Math.round(subtotal * 100) / 100,
       tax,
       total,
-      currency: (unit as any).currency,
+      currency: unit.currency,
     };
   }
 
   // Get applicable price adjustments
   private async getApplicablePriceAdjustments(
-    unit: any,
+    unit: IStorageUnit,
     startTime: Date,
     endTime: Date,
     basePrice: number
@@ -120,7 +119,7 @@ export class PricingService {
   // Evaluate a single pricing rule
   private evaluateRule(
     rule: PricingRule,
-    unit: StorageUnit & { location: { city: string } },
+    unit: IStorageUnit,
     startTime: Date,
     endTime: Date,
     basePrice: number
@@ -170,9 +169,13 @@ export class PricingService {
       return null;
     }
 
-    // Check city condition
-    if (conditions.cities && !conditions.cities.includes(unit.location.city)) {
-      return null;
+    // Check city condition; calculatePrice populates locationId, so the
+    // location document (if loaded) lives on that field
+    if (conditions.cities) {
+      const city = (unit.locationId as unknown as { city?: string })?.city;
+      if (!city || !conditions.cities.includes(city)) {
+        return null;
+      }
     }
 
     // Calculate adjustment amount
@@ -233,9 +236,6 @@ export class PricingService {
       ...data,
       priority: data.priority ?? 0,
     });
-
-    // Invalidate cache
-    await cache.del('pricing_rules:active');
   }
 
   // Get estimated prices for different durations
@@ -253,11 +253,11 @@ export class PricingService {
     }
 
     return {
-      hourly: (unit as any).basePriceHourly,
-      daily: (unit as any).basePriceDaily,
-      weekly: (unit as any).basePriceDaily * 7,
-      monthly: (unit as any).basePriceMonthly ?? (unit as any).basePriceDaily * 30,
-      currency: (unit as any).currency,
+      hourly: unit.basePriceHourly,
+      daily: unit.basePriceDaily,
+      weekly: unit.basePriceDaily * 7,
+      monthly: unit.basePriceMonthly ?? unit.basePriceDaily * 30,
+      currency: unit.currency,
     };
   }
 }

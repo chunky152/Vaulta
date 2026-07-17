@@ -1,10 +1,10 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
-import { User, UserRole } from '../src/models/User.js';
-import { StorageLocation } from '../src/models/StorageLocation.js';
-import { StorageUnit, UnitSize, UnitStatus } from '../src/models/StorageUnit.js';
-import { PricingRule } from '../src/models/PricingRule.js';
-import { config } from '../src/config/index.js';
+import { User, UserRole } from '../models/User.js';
+import { StorageLocation } from '../models/StorageLocation.js';
+import { StorageUnit, UnitSize, UnitStatus } from '../models/StorageUnit.js';
+import { PricingRule } from '../models/PricingRule.js';
+import { config } from '../config/index.js';
 
 async function main() {
   try {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { Card, CardContent } from '@/components/ui/Card';
 import { useBookingStore } from '@/stores/booking.store';
 import { api } from '@/services/api';
 import {
@@ -10,8 +10,6 @@ import {
   Clock,
   QrCode,
   ChevronRight,
-  Filter,
-  X,
   CheckCircle,
   AlertCircle,
 } from 'lucide-react';
@@ -53,7 +51,7 @@ export function BookingsPage() {
       const unitResponse = await api.get(`/units/${booking.unitId}`);
       const unit = unitResponse.data.data;
 
-      let location;
+      let location: StorageLocation | undefined;
       if (unit.locationId) {
         const locationResponse = await api.get(`/locations/${unit.locationId}`);
         location = locationResponse.data.data;

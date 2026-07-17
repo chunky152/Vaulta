@@ -1,9 +1,9 @@
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model, Document, Types } from 'mongoose';
 
-interface IReview extends Document {
-  userId: string;
-  locationId: string;
-  bookingId: string;
+export interface IReview extends Document {
+  userId: Types.ObjectId;
+  locationId: Types.ObjectId;
+  bookingId: Types.ObjectId;
   rating: number;
   title?: string;
   comment?: string;
@@ -14,9 +14,9 @@ interface IReview extends Document {
 
 const reviewSchema = new Schema<IReview>(
   {
-    userId: { type: 'objectId', required: true },
-    locationId: { type: 'objectId', required: true },
-    bookingId: { type: 'objectId', required: true, unique: true },
+    userId: { type: Schema.Types.ObjectId, required: true },
+    locationId: { type: Schema.Types.ObjectId, required: true },
+    bookingId: { type: Schema.Types.ObjectId, required: true, unique: true },
     rating: { type: Number, required: true, min: 1, max: 5 },
     title: String,
     comment: String,

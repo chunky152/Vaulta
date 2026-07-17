@@ -5,9 +5,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { useBookingStore } from '@/stores/booking.store';
-import { useLocationStore } from '@/stores/location.store';
 import { api } from '@/services/api';
 import { MapPin, Calendar, Clock, Shield, Thermometer, AlertCircle } from 'lucide-react';
 import type { StorageUnit, StorageLocation } from '@/types';
@@ -117,8 +116,8 @@ export function BookingPage() {
 
       const booking = await createBooking({
         unitId,
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
+        startTime,
+        endTime,
         notes: data.notes,
       });
 
@@ -296,13 +295,13 @@ export function BookingPage() {
                 )}
 
                 <div className="flex flex-wrap gap-2">
-                  {unit.features?.climateControlled && (
+                  {unit.features?.includes('climate_controlled') && (
                     <span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
                       <Thermometer className="h-3 w-3" />
                       Climate Controlled
                     </span>
                   )}
-                  {unit.features?.secure && (
+                  {unit.features?.includes('secure') && (
                     <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
                       <Shield className="h-3 w-3" />
                       Secure
