@@ -16,9 +16,9 @@ async function main() {
     // Create admin user
     const adminPassword = await bcrypt.hash('Admin@123456', 12);
     const admin = await User.findOneAndUpdate(
-      { email: 'admin@vaulta.com' },
+      { email: 'admin@unbur.com' },
       {
-        email: 'admin@vaulta.com',
+        email: 'admin@unbur.com',
         passwordHash: adminPassword,
         firstName: 'Admin',
         lastName: 'User',
@@ -52,8 +52,8 @@ async function main() {
     // Create storage locations
     const locations = [
       {
-        name: 'Vaulta Downtown',
-        slug: 'vaulta-downtown',
+        name: 'Unbur Downtown',
+        slug: 'unbur-downtown',
         description: 'Modern storage facility in the heart of downtown. 24/7 access, climate-controlled units available.',
         address: '123 Main Street',
         city: 'New York',
@@ -63,7 +63,7 @@ async function main() {
         latitude: 40.7128,
         longitude: -74.006,
         contactPhone: '+12125551234',
-        contactEmail: 'downtown@vaulta.com',
+        contactEmail: 'downtown@unbur.com',
         operatingHours: {
           monday: { open: '06:00', close: '22:00' },
           tuesday: { open: '06:00', close: '22:00' },
@@ -78,8 +78,8 @@ async function main() {
         isFeatured: true,
       },
       {
-        name: 'Vaulta Midtown',
-        slug: 'vaulta-midtown',
+        name: 'Unbur Midtown',
+        slug: 'unbur-midtown',
         description: 'Convenient midtown location with easy access to public transit. Various unit sizes available.',
         address: '456 5th Avenue',
         city: 'New York',
@@ -89,7 +89,7 @@ async function main() {
         latitude: 40.7549,
         longitude: -73.984,
         contactPhone: '+12125552345',
-        contactEmail: 'midtown@vaulta.com',
+        contactEmail: 'midtown@unbur.com',
         operatingHours: {
           monday: { open: '07:00', close: '21:00' },
           tuesday: { open: '07:00', close: '21:00' },
@@ -104,8 +104,8 @@ async function main() {
         isFeatured: true,
       },
       {
-        name: 'Vaulta Brooklyn',
-        slug: 'vaulta-brooklyn',
+        name: 'Unbur Brooklyn',
+        slug: 'unbur-brooklyn',
         description: 'Spacious Brooklyn facility with large units perfect for furniture and bulk storage.',
         address: '789 Atlantic Avenue',
         city: 'Brooklyn',
@@ -115,7 +115,7 @@ async function main() {
         latitude: 40.6892,
         longitude: -73.9875,
         contactPhone: '+17185553456',
-        contactEmail: 'brooklyn@vaulta.com',
+        contactEmail: 'brooklyn@unbur.com',
         operatingHours: {
           monday: { open: '06:00', close: '22:00' },
           tuesday: { open: '06:00', close: '22:00' },

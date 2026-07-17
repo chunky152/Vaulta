@@ -29,7 +29,7 @@ describe('generateAccessCode', () => {
 
 describe('generateSlug', () => {
   it('lowercases and hyphenates', () => {
-    expect(generateSlug('Vaulta Downtown NYC!')).toBe('vaulta-downtown-nyc');
+    expect(generateSlug('Unbur Downtown NYC!')).toBe('unbur-downtown-nyc');
   });
 
   it('collapses whitespace and trims hyphens', () => {
