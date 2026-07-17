@@ -1,6 +1,6 @@
 import { createApp } from './app.js';
-import { config } from './config/index.js';
-import { connectDatabase, disconnectDatabase } from './config/database.js';
+import { config } from './shared/config/index.js';
+import { connectDatabase, disconnectDatabase } from './shared/config/database.js';
 
 const app = createApp();
 

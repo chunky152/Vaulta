@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { useAuthStore } from '@/stores/auth.store';
+import { useAuthStore } from '@/features/auth/auth.store';
 import type { ApiResponse, AuthTokens } from '@/types';
 
 // `||` (not `??`) so an empty VITE_API_URL also falls back

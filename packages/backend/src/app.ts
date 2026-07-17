@@ -3,10 +3,10 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
-import { config } from './config/index.js';
-import routes from './routes/index.js';
-import { notFoundHandler, errorHandler } from './middleware/error.middleware.js';
-import { defaultRateLimiter } from './middleware/rateLimit.middleware.js';
+import { config } from './shared/config/index.js';
+import routes from './routes.js';
+import { notFoundHandler, errorHandler } from './shared/middleware/error.middleware.js';
+import { defaultRateLimiter } from './shared/middleware/rateLimit.middleware.js';
 
 export function createApp(): Express {
   const app = express();

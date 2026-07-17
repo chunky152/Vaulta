@@ -1,8 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
-import { useGeolocation } from '@/hooks/useGeolocation';
-import { LocationMap } from '@/components/map/LocationMap';
+import { useGeolocation } from '@/features/locations/useGeolocation';
+import { LocationMap } from '@/features/locations/LocationMap';
 import {
   MapPin,
   Search,

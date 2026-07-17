@@ -1,9 +1,9 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import { useAuthStore } from '@/stores/auth.store';
-import { useMyBookings } from '@/hooks/useBookings';
-import { useInventorySummary } from '@/hooks/useInventory';
+import { useAuthStore } from '@/features/auth/auth.store';
+import { useMyBookings } from '@/features/bookings/useBookings';
+import { useInventorySummary } from '@/features/inventory/useInventory';
 import {
   MapPin,
   Calendar,
