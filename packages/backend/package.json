@@ -12,7 +12,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "db:seed": "tsx src/scripts/seed.ts"
+    "db:seed": "tsx src/scripts/seed.ts",
+    "db:seed:nearby-hospitals": "tsx src/scripts/seedNearbyHospitals.ts"
   },
   "dependencies": {
     "@unbur/shared": "1.0.0",
