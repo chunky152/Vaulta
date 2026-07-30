@@ -267,7 +267,19 @@ export class AuthService {
     data: Partial<Pick<any, 'firstName' | 'lastName' | 'phone'>>
   ): Promise<any> {
     const objectId = new mongoose.Types.ObjectId(userId);
-    const user = await User.findByIdAndUpdate(objectId, data, { new: true });
+    const updateData: Partial<Pick<any, 'firstName' | 'lastName' | 'phone'>> = {};
+
+    if (data.firstName !== undefined) {
+      updateData.firstName = data.firstName;
+    }
+    if (data.lastName !== undefined) {
+      updateData.lastName = data.lastName;
+    }
+    if (data.phone !== undefined) {
+      updateData.phone = data.phone;
+    }
+
+    const user = await User.findByIdAndUpdate(objectId, updateData, { new: true });
 
     if (!user) {
       throw new NotFoundError('User');
