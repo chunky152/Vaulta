@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import { api } from '@/services/api';
+import { useAdminLocations, useDeleteLocation } from './useAdmin';
 import {
   MapPin,
   Plus,
@@ -15,36 +15,15 @@ import {
 import type { StorageLocation } from '@/types';
 
 export function AdminLocationsPage() {
-  const [locations, setLocations] = useState<StorageLocation[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { locations, isLoading } = useAdminLocations();
+  const deleteLocation = useDeleteLocation();
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingLocation, setEditingLocation] = useState<StorageLocation | null>(null);
 
-  useEffect(() => {
-    fetchLocations();
-  }, []);
-
-  const fetchLocations = async () => {
-    try {
-      const response = await api.get('/locations');
-      setLocations(response.data.data);
-    } catch (err) {
-      console.error('Failed to fetch locations:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     if (!confirm('Are you sure you want to delete this location?')) return;
-
-    try {
-      await api.delete(`/locations/${id}`);
-      setLocations((prev) => prev.filter((loc) => loc.id !== id));
-    } catch (err) {
-      console.error('Failed to delete location:', err);
-    }
+    deleteLocation.mutate(id);
   };
 
   const filteredLocations = locations.filter((loc) =>

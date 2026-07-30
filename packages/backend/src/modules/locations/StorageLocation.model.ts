@@ -5,7 +5,7 @@ interface GeoPoint {
   coordinates: [number, number]; // [longitude, latitude]
 }
 
-interface IStorageLocation extends Document {
+export interface IStorageLocation extends Document {
   name: string;
   slug: string;
   description?: string;

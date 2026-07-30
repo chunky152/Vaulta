@@ -4,7 +4,7 @@ import { UserRole } from '@unbur/shared';
 
 export { UserRole };
 
-interface IUser extends Document {
+export interface IUser extends Document {
   email: string;
   passwordHash: string;
   firstName?: string;

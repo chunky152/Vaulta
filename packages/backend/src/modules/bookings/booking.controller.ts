@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthenticatedRequest, ApiResponse, PaginatedResponse } from '../../shared/types/index.js';
 import { requireUser } from '../../shared/middleware/auth.middleware.js';
+import { buildPagination } from '../../shared/utils/helpers.js';
 import { bookingService } from './booking.service.js';
 import { pricingService } from '../units/pricing.service.js';
 import { generateQRCodeDataURL } from '../../shared/utils/qrcode.js';
@@ -43,14 +44,7 @@ export class BookingController {
     const response: PaginatedResponse<typeof result.bookings[0]> = {
       success: true,
       data: result.bookings,
-      pagination: {
-        page: req.query.page ?? 1,
-        limit: req.query.limit ?? 20,
-        total: result.total,
-        totalPages: result.totalPages,
-        hasNext: (req.query.page ?? 1) < result.totalPages,
-        hasPrev: (req.query.page ?? 1) > 1,
-      },
+      pagination: buildPagination(req.query.page ?? 1, req.query.limit ?? 20, result.total),
     };
 
     res.json(response);

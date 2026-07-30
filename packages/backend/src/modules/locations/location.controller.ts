@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthenticatedRequest, ApiResponse, PaginatedResponse } from '../../shared/types/index.js';
 import { locationService } from './location.service.js';
 import { geolocationService } from './geolocation.service.js';
+import { buildPagination } from '../../shared/utils/helpers.js';
 import {
   CreateLocationInput,
   UpdateLocationInput,
@@ -36,14 +37,7 @@ export class LocationController {
     const response: PaginatedResponse<typeof result.locations[0]> = {
       success: true,
       data: result.locations,
-      pagination: {
-        page: req.query.page ?? 1,
-        limit: req.query.limit ?? 20,
-        total: result.total,
-        totalPages: result.totalPages,
-        hasNext: (req.query.page ?? 1) < result.totalPages,
-        hasPrev: (req.query.page ?? 1) > 1,
-      },
+      pagination: buildPagination(req.query.page ?? 1, req.query.limit ?? 20, result.total),
     };
 
     res.json(response);
@@ -67,14 +61,7 @@ export class LocationController {
     const response: PaginatedResponse<typeof result.locations[0]> = {
       success: true,
       data: result.locations,
-      pagination: {
-        page,
-        limit,
-        total: result.total,
-        totalPages: Math.ceil(result.total / limit),
-        hasNext: page < Math.ceil(result.total / limit),
-        hasPrev: page > 1,
-      },
+      pagination: buildPagination(page, limit, result.total),
     };
 
     res.json(response);

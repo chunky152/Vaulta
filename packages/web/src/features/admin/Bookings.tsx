@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardContent } from '@/components/ui/Card';
 import { api } from '@/services/api';
+import { useAdminBookings } from './useAdmin';
 import {
   Calendar,
   Search,
@@ -13,7 +14,6 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-import type { Booking } from '@/types';
 
 const statusColors: Record<string, string> = {
   PENDING: 'bg-yellow-100 text-yellow-800',
@@ -32,41 +32,21 @@ const statusLabels: Record<string, string> = {
 };
 
 export function AdminBookingsPage() {
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
 
-  useEffect(() => {
-    fetchBookings();
-  }, [currentPage, filterStatus]);
-
-  const fetchBookings = async () => {
-    setIsLoading(true);
-    try {
-      const params: any = {
-        page: currentPage,
-        limit: 10,
-      };
-      if (filterStatus !== 'ALL') {
-        params.status = filterStatus;
-      }
-      const response = await api.get('/admin/bookings', { params });
-      setBookings(response.data.data.bookings || response.data.data);
-      setTotalPages(response.data.data.totalPages || 1);
-    } catch (err) {
-      console.error('Failed to fetch bookings:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { bookings, pagination, isLoading, refetch } = useAdminBookings({
+    page: currentPage,
+    limit: 10,
+    status: filterStatus !== 'ALL' ? filterStatus : undefined,
+  });
+  const totalPages = pagination.totalPages;
 
   const handleStatusUpdate = async (bookingId: string, action: 'confirm' | 'cancel') => {
     try {
       await api.post(`/bookings/${bookingId}/${action}`);
-      fetchBookings();
+      refetch();
     } catch (err) {
       console.error(`Failed to ${action} booking:`, err);
     }
