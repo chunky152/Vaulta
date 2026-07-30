@@ -1,10 +1,28 @@
 import { Response } from 'express';
+import mongoose from 'mongoose';
 import { AuthenticatedRequest, ApiResponse } from '../../shared/types/index.js';
 import { Booking, BookingStatus } from '../bookings/Booking.model.js';
 import { User, UserRole } from '../auth/User.model.js';
 import { StorageUnit } from '../units/StorageUnit.model.js';
 import { StorageLocation } from '../locations/StorageLocation.model.js';
-import { Transaction } from '../payments/Transaction.model.js';
+import { Transaction, TransactionType, TransactionStatus } from '../payments/Transaction.model.js';
+
+// Only accept a value that belongs to the given enum's set of known values —
+// req.query/req.body values are attacker-controlled and must not flow into
+// Mongo query filters unvalidated (CodeQL: database query built from
+// user-controlled sources).
+function asEnumValue<T extends string>(
+  value: unknown,
+  allowed: Record<string, T>
+): T | undefined {
+  return typeof value === 'string' && (Object.values(allowed) as string[]).includes(value)
+    ? (value as T)
+    : undefined;
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 export class AdminController {
   // Get dashboard stats
@@ -113,13 +131,24 @@ export class AdminController {
   async getAllBookings(req: AuthenticatedRequest, res: Response): Promise<void> {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
-    const status = req.query.status as BookingStatus | undefined;
-    const locationId = req.query.locationId as string | undefined;
-    const userId = req.query.userId as string | undefined;
+    const status = asEnumValue(req.query.status, BookingStatus);
+    const locationIdQuery = req.query.locationId;
+    const locationId =
+      typeof locationIdQuery === 'string' && mongoose.Types.ObjectId.isValid(locationIdQuery)
+        ? locationIdQuery
+        : undefined;
+    const userIdQuery = req.query.userId;
+    const userId =
+      typeof userIdQuery === 'string' && mongoose.Types.ObjectId.isValid(userIdQuery)
+        ? userIdQuery
+        : undefined;
 
     const where: any = {};
     if (status) where.status = status;
-    if (locationId) where.unitId = { $in: [new (Booking as any).schema.types.ObjectId(locationId)] };
+    if (locationId) {
+      const unitIds = await StorageUnit.find({ locationId }).distinct('_id');
+      where.unitId = { $in: unitIds };
+    }
     if (userId) where.userId = userId;
 
     const [bookings, total] = await Promise.all([
@@ -161,16 +190,18 @@ export class AdminController {
   async getAllUsers(req: AuthenticatedRequest, res: Response): Promise<void> {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
-    const role = req.query.role as UserRole | undefined;
-    const search = req.query.search as string | undefined;
+    const role = asEnumValue(req.query.role, UserRole);
+    const searchQuery = req.query.search;
+    const search = typeof searchQuery === 'string' ? searchQuery.trim() : undefined;
 
     const where: any = {};
     if (role) where.role = role;
     if (search) {
+      const escapedSearch = escapeRegex(search);
       where.$or = [
-        { email: { $regex: search, $options: 'i' } },
-        { firstName: { $regex: search, $options: 'i' } },
-        { lastName: { $regex: search, $options: 'i' } },
+        { email: { $regex: escapedSearch, $options: 'i' } },
+        { firstName: { $regex: escapedSearch, $options: 'i' } },
+        { lastName: { $regex: escapedSearch, $options: 'i' } },
       ];
     }
 
@@ -393,14 +424,14 @@ export class AdminController {
   async getTransactionReports(req: AuthenticatedRequest, res: Response): Promise<void> {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 50;
-    const type = req.query.type as string | undefined;
-    const status = req.query.status as string | undefined;
-    const startDate = req.query.startDate
-      ? new Date(req.query.startDate as string)
-      : undefined;
-    const endDate = req.query.endDate
-      ? new Date(req.query.endDate as string)
-      : undefined;
+    const type = asEnumValue(req.query.type, TransactionType);
+    const status = asEnumValue(req.query.status, TransactionStatus);
+
+    const parsedStartDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+    const startDate = parsedStartDate && !Number.isNaN(parsedStartDate.getTime()) ? parsedStartDate : undefined;
+
+    const parsedEndDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+    const endDate = parsedEndDate && !Number.isNaN(parsedEndDate.getTime()) ? parsedEndDate : undefined;
 
     const where: any = {};
     if (type) where.type = type;
