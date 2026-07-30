@@ -23,10 +23,17 @@ export class AdminController {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
 
+    const statusQuery = req.query.status;
+    const status =
+      typeof statusQuery === 'string' &&
+      (Object.values(BookingStatus) as string[]).includes(statusQuery)
+        ? (statusQuery as BookingStatus)
+        : undefined;
+
     const { bookings, total } = await adminService.getAllBookings({
       page,
       limit,
-      status: req.query.status as BookingStatus | undefined,
+      status,
       locationId: req.query.locationId as string | undefined,
       userId: req.query.userId as string | undefined,
     });
