@@ -129,8 +129,13 @@ export class AdminService {
     if (status) where.status = status;
     if (userId) where.userId = new mongoose.Types.ObjectId(userId);
     if (locationId) {
-      const unitIds = await StorageUnit.find({ locationId }).distinct('_id');
-      where.unitId = { $in: unitIds };
+      if (!mongoose.Types.ObjectId.isValid(locationId)) {
+        where.unitId = { $in: [] };
+      } else {
+        const normalizedLocationId = new mongoose.Types.ObjectId(locationId);
+        const unitIds = await StorageUnit.find({ locationId: normalizedLocationId }).distinct('_id');
+        where.unitId = { $in: unitIds };
+      }
     }
 
     const [bookings, total] = await Promise.all([
