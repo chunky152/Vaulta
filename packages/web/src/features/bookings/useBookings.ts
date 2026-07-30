@@ -1,17 +1,35 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api, { getErrorMessage } from '@/services/api';
-import { usePaginatedQuery } from '@/lib/usePaginatedQuery';
-import type { ApiResponse, Booking, BookingSearchParams } from '@/types';
+import type {
+  ApiResponse,
+  PaginatedResponse,
+  Booking,
+  BookingSearchParams,
+} from '@/types';
+
+const emptyPagination = { page: 1, limit: 20, total: 0, totalPages: 0 };
 
 export function useMyBookings(params: BookingSearchParams = {}) {
-  const { items: bookings, pagination, isLoading, error } = usePaginatedQuery<Booking>({
+  const query = useQuery({
     queryKey: ['bookings', params],
-    url: '/bookings',
-    params,
+    queryFn: async () => {
+      const response = await api.get<PaginatedResponse<Booking>>('/bookings', {
+        params,
+      });
+      return {
+        bookings: response.data.data ?? [],
+        pagination: response.data.pagination ?? emptyPagination,
+      };
+    },
   });
 
-  return { bookings, pagination, isLoading, error };
+  return {
+    bookings: query.data?.bookings ?? [],
+    pagination: query.data?.pagination ?? emptyPagination,
+    isLoading: query.isLoading,
+    error: query.error ? getErrorMessage(query.error) : null,
+  };
 }
 
 export function useBooking(id: string | undefined) {

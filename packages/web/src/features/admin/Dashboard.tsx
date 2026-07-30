@@ -1,7 +1,8 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { useAdminStats, useAdminBookings } from './useAdmin';
+import { api } from '@/services/api';
 import {
   MapPin,
   Users,
@@ -14,9 +15,41 @@ import {
   AlertCircle,
 } from 'lucide-react';
 
+interface DashboardStats {
+  totalUsers: number;
+  totalLocations: number;
+  totalBookings: number;
+  totalRevenue: number;
+  activeBookings: number;
+  occupancyRate: number;
+  recentBookings: Array<{
+    id: string;
+    bookingNumber: string;
+    status: string;
+    totalPrice: number;
+    createdAt: string;
+  }>;
+}
+
 export function AdminDashboardPage() {
-  const { stats, isLoading, error } = useAdminStats();
-  const { bookings: recentBookings } = useAdminBookings({ limit: 5 });
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await api.get('/admin/dashboard');
+        setStats(response.data.data);
+      } catch (err: any) {
+        setError(err.response?.data?.error?.message || 'Failed to load dashboard');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -102,7 +135,7 @@ export function AdminDashboardPage() {
                 <div>
                   <p className="text-sm text-muted-foreground">Total Revenue</p>
                   <p className="text-2xl font-bold">
-                    {formatCurrency(stats?.revenue.total || 0)}
+                    {formatCurrency(stats?.totalRevenue || 0)}
                   </p>
                   <div className="flex items-center gap-1 mt-1 text-green-600 text-sm">
                     <TrendingUp className="h-4 w-4" />
@@ -121,7 +154,7 @@ export function AdminDashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Total Bookings</p>
-                  <p className="text-2xl font-bold">{stats?.bookings.total || 0}</p>
+                  <p className="text-2xl font-bold">{stats?.totalBookings || 0}</p>
                   <div className="flex items-center gap-1 mt-1 text-green-600 text-sm">
                     <TrendingUp className="h-4 w-4" />
                     <span>+8.2% from last month</span>
@@ -139,7 +172,7 @@ export function AdminDashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Total Users</p>
-                  <p className="text-2xl font-bold">{stats?.users.total || 0}</p>
+                  <p className="text-2xl font-bold">{stats?.totalUsers || 0}</p>
                   <div className="flex items-center gap-1 mt-1 text-green-600 text-sm">
                     <TrendingUp className="h-4 w-4" />
                     <span>+15.3% from last month</span>
@@ -158,7 +191,7 @@ export function AdminDashboardPage() {
                 <div>
                   <p className="text-sm text-muted-foreground">Occupancy Rate</p>
                   <p className="text-2xl font-bold">
-                    {(stats?.units.occupancyRate || 0).toFixed(1)}%
+                    {((stats?.occupancyRate || 0) * 100).toFixed(1)}%
                   </p>
                   <div className="flex items-center gap-1 mt-1 text-red-600 text-sm">
                     <TrendingDown className="h-4 w-4" />
@@ -184,9 +217,9 @@ export function AdminDashboardPage() {
                 </Link>
               </CardHeader>
               <CardContent>
-                {recentBookings.length > 0 ? (
+                {stats?.recentBookings && stats.recentBookings.length > 0 ? (
                   <div className="space-y-4">
-                    {recentBookings.map((booking) => (
+                    {stats.recentBookings.map((booking) => (
                       <div
                         key={booking.id}
                         className="flex items-center justify-between p-3 border rounded-lg"
@@ -266,17 +299,17 @@ export function AdminDashboardPage() {
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Total Locations</span>
-                  <span className="font-medium">{stats?.locations.total || 0}</span>
+                  <span className="font-medium">{stats?.totalLocations || 0}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Active Bookings</span>
                   <span className="font-medium text-green-600">
-                    {stats?.bookings.active || 0}
+                    {stats?.activeBookings || 0}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Registered Users</span>
-                  <span className="font-medium">{stats?.users.total || 0}</span>
+                  <span className="font-medium">{stats?.totalUsers || 0}</span>
                 </div>
               </CardContent>
             </Card>

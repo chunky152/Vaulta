@@ -1,7 +1,5 @@
 import { Response } from 'express';
 import { AuthenticatedRequest, ApiResponse, PaginatedResponse } from '../../shared/types/index.js';
-import { requireUser } from '../../shared/middleware/auth.middleware.js';
-import { buildPagination } from '../../shared/utils/helpers.js';
 import { inventoryService } from './inventory.service.js';
 import {
   CreateInventoryItemInput,
@@ -15,10 +13,13 @@ export class InventoryController {
     req: AuthenticatedRequest & { body: CreateInventoryItemInput; params: { bookingId: string } },
     res: Response
   ): Promise<void> {
-    const user = requireUser(req);
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
 
     const { bookingId } = req.params;
-    const item = await inventoryService.createItem(user.id, bookingId, req.body);
+    const item = await inventoryService.createItem(req.user.id, bookingId, req.body);
 
     const response: ApiResponse = {
       success: true,
@@ -34,11 +35,14 @@ export class InventoryController {
     req: AuthenticatedRequest & { params: { bookingId: string }; query: ListInventoryInput },
     res: Response
   ): Promise<void> {
-    const user = requireUser(req);
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
 
     const { bookingId } = req.params;
     const result = await inventoryService.listBookingItems(
-      user.id,
+      req.user.id,
       bookingId,
       req.query
     );
@@ -46,7 +50,14 @@ export class InventoryController {
     const response: PaginatedResponse<(typeof result.items)[0]> = {
       success: true,
       data: result.items,
-      pagination: buildPagination(req.query.page ?? 1, req.query.limit ?? 20, result.total),
+      pagination: {
+        page: req.query.page ?? 1,
+        limit: req.query.limit ?? 20,
+        total: result.total,
+        totalPages: result.totalPages,
+        hasNext: (req.query.page ?? 1) < result.totalPages,
+        hasPrev: (req.query.page ?? 1) > 1,
+      },
     };
 
     res.json(response);
@@ -57,14 +68,24 @@ export class InventoryController {
     req: AuthenticatedRequest & { query: ListInventoryInput },
     res: Response
   ): Promise<void> {
-    const user = requireUser(req);
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
 
-    const result = await inventoryService.listUserInventory(user.id, req.query);
+    const result = await inventoryService.listUserInventory(req.user.id, req.query);
 
     const response: PaginatedResponse<(typeof result.items)[0]> = {
       success: true,
       data: result.items,
-      pagination: buildPagination(req.query.page ?? 1, req.query.limit ?? 20, result.total),
+      pagination: {
+        page: req.query.page ?? 1,
+        limit: req.query.limit ?? 20,
+        total: result.total,
+        totalPages: result.totalPages,
+        hasNext: (req.query.page ?? 1) < result.totalPages,
+        hasPrev: (req.query.page ?? 1) > 1,
+      },
     };
 
     res.json(response);
@@ -72,9 +93,12 @@ export class InventoryController {
 
   // Get inventory summary
   async getSummary(req: AuthenticatedRequest, res: Response): Promise<void> {
-    const user = requireUser(req);
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
 
-    const summary = await inventoryService.getInventorySummary(user.id);
+    const summary = await inventoryService.getInventorySummary(req.user.id);
 
     const response: ApiResponse = {
       success: true,
@@ -89,10 +113,13 @@ export class InventoryController {
     req: AuthenticatedRequest & { params: { itemId: string } },
     res: Response
   ): Promise<void> {
-    const user = requireUser(req);
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
 
     const { itemId } = req.params;
-    const item = await inventoryService.getItemById(user.id, itemId);
+    const item = await inventoryService.getItemById(req.user.id, itemId);
 
     const response: ApiResponse = {
       success: true,
@@ -107,10 +134,13 @@ export class InventoryController {
     req: AuthenticatedRequest & { params: { itemId: string }; body: UpdateInventoryItemInput },
     res: Response
   ): Promise<void> {
-    const user = requireUser(req);
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
 
     const { itemId } = req.params;
-    const item = await inventoryService.updateItem(user.id, itemId, req.body);
+    const item = await inventoryService.updateItem(req.user.id, itemId, req.body);
 
     const response: ApiResponse = {
       success: true,
@@ -126,10 +156,13 @@ export class InventoryController {
     req: AuthenticatedRequest & { params: { itemId: string } },
     res: Response
   ): Promise<void> {
-    const user = requireUser(req);
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
 
     const { itemId } = req.params;
-    await inventoryService.deleteItem(user.id, itemId);
+    await inventoryService.deleteItem(req.user.id, itemId);
 
     const response: ApiResponse = {
       success: true,

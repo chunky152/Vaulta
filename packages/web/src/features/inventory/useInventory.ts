@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api, { getErrorMessage } from '@/services/api';
-import { usePaginatedQuery } from '@/lib/usePaginatedQuery';
 import type {
   ApiResponse,
+  PaginatedResponse,
   InventoryItem,
   InventorySummary,
   InventorySearchParams,
@@ -11,14 +11,29 @@ import type {
   UpdateInventoryItemInput,
 } from '@/types';
 
+const emptyPagination = { page: 1, limit: 20, total: 0, totalPages: 0 };
+
 export function useInventory(params: InventorySearchParams = {}) {
-  const { items, pagination, isLoading, error } = usePaginatedQuery<InventoryItem>({
+  const query = useQuery({
     queryKey: ['inventory', params],
-    url: '/inventory',
-    params,
+    queryFn: async () => {
+      const response = await api.get<PaginatedResponse<InventoryItem>>(
+        '/inventory',
+        { params }
+      );
+      return {
+        items: response.data.data ?? [],
+        pagination: response.data.pagination ?? emptyPagination,
+      };
+    },
   });
 
-  return { items, pagination, isLoading, error };
+  return {
+    items: query.data?.items ?? [],
+    pagination: query.data?.pagination ?? emptyPagination,
+    isLoading: query.isLoading,
+    error: query.error ? getErrorMessage(query.error) : null,
+  };
 }
 
 export function useInventorySummary() {

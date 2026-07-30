@@ -1,6 +1,5 @@
 import { Response } from 'express';
 import { AuthenticatedRequest, ApiResponse } from '../../shared/types/index.js';
-import { requireUser } from '../../shared/middleware/auth.middleware.js';
 import { authService } from './auth.service.js';
 import {
   RegisterInput,
@@ -78,9 +77,12 @@ export class AuthController {
 
   // Logout from all devices
   async logoutAll(req: AuthenticatedRequest, res: Response): Promise<void> {
-    const user = requireUser(req);
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
 
-    await authService.logoutAll(user.id);
+    await authService.logoutAll(req.user.id);
 
     const response: ApiResponse = {
       success: true,
@@ -92,9 +94,12 @@ export class AuthController {
 
   // Get current user profile
   async getProfile(req: AuthenticatedRequest, res: Response): Promise<void> {
-    const authUser = requireUser(req);
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
 
-    const user = await authService.getUserById(authUser.id);
+    const user = await authService.getUserById(req.user.id);
 
     const response: ApiResponse = {
       success: true,
@@ -109,9 +114,12 @@ export class AuthController {
     req: AuthenticatedRequest & { body: UpdateProfileInput },
     res: Response
   ): Promise<void> {
-    const authUser = requireUser(req);
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
 
-    const user = await authService.updateProfile(authUser.id, req.body);
+    const user = await authService.updateProfile(req.user.id, req.body);
 
     const response: ApiResponse = {
       success: true,
@@ -127,10 +135,13 @@ export class AuthController {
     req: AuthenticatedRequest & { body: ChangePasswordInput },
     res: Response
   ): Promise<void> {
-    const user = requireUser(req);
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
 
     await authService.changePassword(
-      user.id,
+      req.user.id,
       req.body.currentPassword,
       req.body.newPassword
     );
