@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import { AuthenticatedRequest, ApiResponse } from '../../shared/types/index.js';
+import { requireUser } from '../../shared/middleware/auth.middleware.js';
 import { authService } from './auth.service.js';
 import {
   RegisterInput,
@@ -77,12 +78,9 @@ export class AuthController {
 
   // Logout from all devices
   async logoutAll(req: AuthenticatedRequest, res: Response): Promise<void> {
-    if (!req.user) {
-      res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
+    const user = requireUser(req);
 
-    await authService.logoutAll(req.user.id);
+    await authService.logoutAll(user.id);
 
     const response: ApiResponse = {
       success: true,
@@ -94,12 +92,9 @@ export class AuthController {
 
   // Get current user profile
   async getProfile(req: AuthenticatedRequest, res: Response): Promise<void> {
-    if (!req.user) {
-      res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
+    const authUser = requireUser(req);
 
-    const user = await authService.getUserById(req.user.id);
+    const user = await authService.getUserById(authUser.id);
 
     const response: ApiResponse = {
       success: true,
@@ -114,12 +109,9 @@ export class AuthController {
     req: AuthenticatedRequest & { body: UpdateProfileInput },
     res: Response
   ): Promise<void> {
-    if (!req.user) {
-      res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
+    const authUser = requireUser(req);
 
-    const user = await authService.updateProfile(req.user.id, req.body);
+    const user = await authService.updateProfile(authUser.id, req.body);
 
     const response: ApiResponse = {
       success: true,
@@ -135,13 +127,10 @@ export class AuthController {
     req: AuthenticatedRequest & { body: ChangePasswordInput },
     res: Response
   ): Promise<void> {
-    if (!req.user) {
-      res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
+    const user = requireUser(req);
 
     await authService.changePassword(
-      req.user.id,
+      user.id,
       req.body.currentPassword,
       req.body.newPassword
     );

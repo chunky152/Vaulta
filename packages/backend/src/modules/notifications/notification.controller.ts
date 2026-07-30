@@ -1,21 +1,20 @@
 import { Response } from 'express';
 import { AuthenticatedRequest, ApiResponse } from '../../shared/types/index.js';
+import { requireUser } from '../../shared/middleware/auth.middleware.js';
+import { buildPagination } from '../../shared/utils/helpers.js';
 import { notificationService } from './notification.service.js';
 
 export class NotificationController {
   // Get user notifications
   async getNotifications(req: AuthenticatedRequest, res: Response): Promise<void> {
-    if (!req.user) {
-      res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
+    const user = requireUser(req);
 
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
     const unreadOnly = req.query.unreadOnly === 'true';
 
     const result = await notificationService.getUserNotifications(
-      req.user.id,
+      user.id,
       page,
       limit,
       unreadOnly
@@ -26,14 +25,7 @@ export class NotificationController {
       data: {
         notifications: result.notifications,
         unreadCount: result.unreadCount,
-        pagination: {
-          page,
-          limit,
-          total: result.total,
-          totalPages: Math.ceil(result.total / limit),
-          hasNext: page < Math.ceil(result.total / limit),
-          hasPrev: page > 1,
-        },
+        pagination: buildPagination(page, limit, result.total),
       },
     };
 
@@ -42,14 +34,11 @@ export class NotificationController {
 
   // Mark notification as read
   async markAsRead(req: AuthenticatedRequest, res: Response): Promise<void> {
-    if (!req.user) {
-      res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
+    const user = requireUser(req);
 
     const { id } = req.params;
 
-    await notificationService.markAsRead(id as string, req.user.id);
+    await notificationService.markAsRead(id as string, user.id);
 
     const response: ApiResponse = {
       success: true,
@@ -61,12 +50,9 @@ export class NotificationController {
 
   // Mark all notifications as read
   async markAllAsRead(req: AuthenticatedRequest, res: Response): Promise<void> {
-    if (!req.user) {
-      res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
+    const user = requireUser(req);
 
-    await notificationService.markAllAsRead(req.user.id);
+    await notificationService.markAllAsRead(user.id);
 
     const response: ApiResponse = {
       success: true,
@@ -78,14 +64,11 @@ export class NotificationController {
 
   // Delete notification
   async deleteNotification(req: AuthenticatedRequest, res: Response): Promise<void> {
-    if (!req.user) {
-      res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
+    const user = requireUser(req);
 
     const { id } = req.params;
 
-    await notificationService.deleteNotification(id as string, req.user.id);
+    await notificationService.deleteNotification(id as string, user.id);
 
     const response: ApiResponse = {
       success: true,
@@ -97,12 +80,9 @@ export class NotificationController {
 
   // Update notification preferences
   async updatePreferences(req: AuthenticatedRequest, res: Response): Promise<void> {
-    if (!req.user) {
-      res.status(401).json({ success: false, error: 'Unauthorized' });
-      return;
-    }
+    const user = requireUser(req);
 
-    await notificationService.updatePreferences(req.user.id, req.body);
+    await notificationService.updatePreferences(user.id, req.body);
 
     const response: ApiResponse = {
       success: true,

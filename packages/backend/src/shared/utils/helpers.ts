@@ -85,3 +85,27 @@ export function sanitizeUser<T extends object>(
   const { passwordHash, ...sanitized } = user as T & { passwordHash?: string };
   return sanitized as Omit<T, 'passwordHash'>;
 }
+
+// Build the pagination metadata block used in PaginatedResponse
+export function buildPagination(
+  page: number,
+  limit: number,
+  total: number
+): {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+} {
+  const totalPages = Math.ceil(total / limit);
+  return {
+    page,
+    limit,
+    total,
+    totalPages,
+    hasNext: page < totalPages,
+    hasPrev: page > 1,
+  };
+}
