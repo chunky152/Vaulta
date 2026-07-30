@@ -54,10 +54,16 @@ export class AdminController {
     res.json(response);
   }
 
+    const roleQuery = req.query.role;
+    const role =
+      typeof roleQuery === 'string' && (Object.values(UserRole) as string[]).includes(roleQuery)
+        ? (roleQuery as UserRole)
+        : undefined;
+
   // Get all users (admin)
   async getAllUsers(req: AuthenticatedRequest, res: Response): Promise<void> {
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+      role,
     const roleQuery = req.query.role;
     const role =
       typeof roleQuery === 'string' && (Object.values(UserRole) as string[]).includes(roleQuery)
