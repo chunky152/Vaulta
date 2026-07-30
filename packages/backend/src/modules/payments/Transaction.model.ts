@@ -13,7 +13,7 @@ export enum TransactionStatus {
   REFUNDED = 'REFUNDED',
 }
 
-export interface ITransaction extends Document {
+interface ITransaction extends Document {
   bookingId?: string;
   userId: Types.ObjectId | string;
   amount: number;

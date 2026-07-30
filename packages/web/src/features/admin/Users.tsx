@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardContent } from '@/components/ui/Card';
-import { useAdminUsers } from './useAdmin';
+import { api } from '@/services/api';
 import {
   Users,
   Search,
@@ -17,6 +17,18 @@ import {
   ChevronRight,
 } from 'lucide-react';
 
+interface User {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  role: string;
+  emailVerified: boolean;
+  loyaltyPoints: number;
+  createdAt: string;
+}
+
 const roleColors: Record<string, string> = {
   CUSTOMER: 'bg-gray-100 text-gray-800',
   ADMIN: 'bg-blue-100 text-blue-800',
@@ -24,16 +36,36 @@ const roleColors: Record<string, string> = {
 };
 
 export function AdminUsersPage() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState<string>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
-  const { users, pagination, isLoading } = useAdminUsers({
-    page: currentPage,
-    limit: 10,
-    role: filterRole !== 'ALL' ? filterRole : undefined,
-  });
-  const totalPages = pagination.totalPages;
+  useEffect(() => {
+    fetchUsers();
+  }, [currentPage, filterRole]);
+
+  const fetchUsers = async () => {
+    setIsLoading(true);
+    try {
+      const params: any = {
+        page: currentPage,
+        limit: 10,
+      };
+      if (filterRole !== 'ALL') {
+        params.role = filterRole;
+      }
+      const response = await api.get('/admin/users', { params });
+      setUsers(response.data.data.users || response.data.data);
+      setTotalPages(response.data.data.totalPages || 1);
+    } catch (err) {
+      console.error('Failed to fetch users:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {

@@ -1,19 +1,20 @@
 import { Request, Response } from 'express';
 import { AuthenticatedRequest, ApiResponse } from '../../shared/types/index.js';
-import { requireUser } from '../../shared/middleware/auth.middleware.js';
-import { buildPagination } from '../../shared/utils/helpers.js';
 import { paymentService } from './payment.service.js';
 
 export class PaymentController {
   // Create payment intent for a booking
   async createPaymentIntent(req: AuthenticatedRequest, res: Response): Promise<void> {
-    const user = requireUser(req);
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
 
     const { bookingId } = req.body;
 
     const result = await paymentService.createPaymentIntent(
       bookingId,
-      user.id
+      req.user.id
     );
 
     const response: ApiResponse = {
@@ -39,14 +40,17 @@ export class PaymentController {
 
   // Request refund
   async requestRefund(req: AuthenticatedRequest, res: Response): Promise<void> {
-    const user = requireUser(req);
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
 
     const { bookingId } = req.params;
     const { amount } = req.body;
 
     const result = await paymentService.requestRefund(
       bookingId as string,
-      user.id,
+      req.user.id,
       amount
     );
 
@@ -61,13 +65,16 @@ export class PaymentController {
 
   // Get payment history
   async getPaymentHistory(req: AuthenticatedRequest, res: Response): Promise<void> {
-    const user = requireUser(req);
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
 
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
 
     const result = await paymentService.getPaymentHistory(
-      user.id,
+      req.user.id,
       page,
       limit
     );
@@ -76,7 +83,14 @@ export class PaymentController {
       success: true,
       data: {
         transactions: result.transactions,
-        pagination: buildPagination(page, limit, result.total),
+        pagination: {
+          page,
+          limit,
+          total: result.total,
+          totalPages: result.totalPages,
+          hasNext: page < result.totalPages,
+          hasPrev: page > 1,
+        },
       },
     };
 

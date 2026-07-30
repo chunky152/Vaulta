@@ -1,23 +1,39 @@
 import { useQuery } from '@tanstack/react-query';
 import api, { getErrorMessage } from '@/services/api';
-import { usePaginatedQuery } from '@/lib/usePaginatedQuery';
 import type {
   ApiResponse,
+  PaginatedResponse,
   Location,
   LocationWithDistance,
   StorageUnit,
   NearbySearchParams,
 } from '@/types';
 
+const emptyPagination = { page: 1, limit: 20, total: 0, totalPages: 0 };
+
 export function useNearbyLocations(params: NearbySearchParams | null) {
-  const { items: locations, pagination, isLoading, error, refetch } = usePaginatedQuery<LocationWithDistance>({
+  const query = useQuery({
     queryKey: ['locations', 'nearby', params],
-    url: '/locations/nearby',
-    params: params ?? undefined,
     enabled: params !== null,
+    queryFn: async () => {
+      const response = await api.get<PaginatedResponse<LocationWithDistance>>(
+        '/locations/nearby',
+        { params }
+      );
+      return {
+        locations: response.data.data ?? [],
+        pagination: response.data.pagination ?? emptyPagination,
+      };
+    },
   });
 
-  return { locations, pagination, isLoading, error, refetch };
+  return {
+    locations: query.data?.locations ?? [],
+    pagination: query.data?.pagination ?? emptyPagination,
+    isLoading: query.isLoading,
+    error: query.error ? getErrorMessage(query.error) : null,
+    refetch: query.refetch,
+  };
 }
 
 export function useFeaturedLocations() {
