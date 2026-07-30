@@ -22,6 +22,11 @@ export class AdminController {
   async getAllBookings(req: AuthenticatedRequest, res: Response): Promise<void> {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
+    const rawStatus = typeof req.query.status === 'string' ? req.query.status : undefined;
+    const status =
+      rawStatus && (Object.values(BookingStatus) as string[]).includes(rawStatus)
+        ? (rawStatus as BookingStatus)
+        : undefined;
 
     const statusQuery = req.query.status;
     const status =
