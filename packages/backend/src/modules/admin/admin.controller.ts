@@ -111,18 +111,36 @@ export class AdminController {
   async getTransactionReports(req: AuthenticatedRequest, res: Response): Promise<void> {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 50;
-    const startDate = req.query.startDate
+
+    const parsedStartDate = req.query.startDate
       ? new Date(req.query.startDate as string)
       : undefined;
-    const endDate = req.query.endDate
-      ? new Date(req.query.endDate as string)
-      : undefined;
+    const startDate =
+      parsedStartDate && !Number.isNaN(parsedStartDate.getTime()) ? parsedStartDate : undefined;
+
+    const parsedEndDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+    const endDate =
+      parsedEndDate && !Number.isNaN(parsedEndDate.getTime()) ? parsedEndDate : undefined;
+
+    const rawType = req.query.type;
+    const type =
+      typeof rawType === 'string' &&
+      (Object.values(TransactionType) as string[]).includes(rawType)
+        ? (rawType as TransactionType)
+        : undefined;
+
+    const rawStatus = req.query.status;
+    const status =
+      typeof rawStatus === 'string' &&
+      (Object.values(TransactionStatus) as string[]).includes(rawStatus)
+        ? (rawStatus as TransactionStatus)
+        : undefined;
 
     const { transactions, total, summary } = await adminService.getTransactionReports({
       page,
       limit,
-      type: req.query.type as TransactionType | undefined,
-      status: req.query.status as TransactionStatus | undefined,
+      type,
+      status,
       startDate,
       endDate,
     });
