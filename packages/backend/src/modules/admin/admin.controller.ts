@@ -58,11 +58,16 @@ export class AdminController {
   async getAllUsers(req: AuthenticatedRequest, res: Response): Promise<void> {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
+    const roleQuery = req.query.role;
+    const role =
+      typeof roleQuery === 'string' && (Object.values(UserRole) as string[]).includes(roleQuery)
+        ? (roleQuery as UserRole)
+        : undefined;
 
     const { users, total } = await adminService.getAllUsers({
       page,
       limit,
-      role: req.query.role as UserRole | undefined,
+      role,
       search: req.query.search as string | undefined,
     });
 

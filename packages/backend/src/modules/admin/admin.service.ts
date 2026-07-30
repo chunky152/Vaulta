@@ -12,6 +12,8 @@ import {
 } from '../payments/Transaction.model.js';
 import { NotFoundError } from '../../shared/types/index.js';
 
+const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 export interface AdminDashboardStats {
   users: { total: number; newThisMonth: number };
   bookings: { total: number; active: number; completed: number };
@@ -161,12 +163,15 @@ export class AdminService {
     const { page, limit, role, search } = params;
 
     const where: FilterQuery<IUser> = {};
-    if (role) where.role = role;
-    if (search) {
+    if (role && (Object.values(UserRole) as string[]).includes(role as string)) {
+      where.role = role;
+    }
+    if (typeof search === 'string' && search.trim()) {
+      const escapedSearch = escapeRegex(search.trim());
       where.$or = [
-        { email: { $regex: search, $options: 'i' } },
-        { firstName: { $regex: search, $options: 'i' } },
-        { lastName: { $regex: search, $options: 'i' } },
+        { email: { $regex: escapedSearch, $options: 'i' } },
+        { firstName: { $regex: escapedSearch, $options: 'i' } },
+        { lastName: { $regex: escapedSearch, $options: 'i' } },
       ];
     }
 
