@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { notificationController } from './notification.controller.js';
 import { authenticate } from '../../shared/middleware/auth.middleware.js';
 import { asyncHandler } from '../../shared/middleware/error.middleware.js';
+import { validate } from '../../shared/middleware/validation.middleware.js';
+import { updatePreferencesSchema } from './notification.validator.js';
 
 const router = Router();
 
@@ -35,6 +37,7 @@ router.delete(
 // Update preferences
 router.put(
   '/preferences',
+  validate(updatePreferencesSchema),
   asyncHandler(notificationController.updatePreferences.bind(notificationController))
 );
 

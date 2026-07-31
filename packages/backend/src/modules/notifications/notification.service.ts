@@ -5,6 +5,7 @@ import { NotificationPreference } from './NotificationPreference.model.js';
 import { Booking } from '../bookings/Booking.model.js';
 import { User } from '../auth/User.model.js';
 import { config } from '../../shared/config/index.js';
+import { UpdatePreferencesInput } from './notification.validator.js';
 
 // Notification enums
 type NotificationType = 'EMAIL' | 'SMS' | 'PUSH';
@@ -367,27 +368,18 @@ Access Code: ${(booking as any).accessCode}`;
   // Update notification preferences
   async updatePreferences(
     userId: string,
-    preferences: Partial<{
-      emailBooking: boolean;
-      emailPayment: boolean;
-      emailReminder: boolean;
-      emailPromo: boolean;
-      smsBooking: boolean;
-      smsPayment: boolean;
-      smsReminder: boolean;
-      smsPromo: boolean;
-      pushBooking: boolean;
-      pushPayment: boolean;
-      pushReminder: boolean;
-      pushPromo: boolean;
-    }>
+    preferences: UpdatePreferencesInput
   ): Promise<void> {
     const existing = await NotificationPreference.findOne({ userId });
 
     if (existing) {
+      // $set applies a partial update to only the whitelisted fields —
+      // an unkeyed update document here would replace the whole
+      // matched document, letting extra fields (e.g. userId) reassign
+      // which user the preferences document belongs to.
       await NotificationPreference.updateOne(
         { userId },
-        preferences
+        { $set: preferences }
       );
     } else {
       await NotificationPreference.create({
