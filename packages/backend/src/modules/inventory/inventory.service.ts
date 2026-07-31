@@ -2,6 +2,7 @@ import { Booking } from '../bookings/Booking.model.js';
 import { InventoryItem } from './InventoryItem.model.js';
 import mongoose from 'mongoose';
 import { NotFoundError, AuthorizationError } from '../../shared/types/index.js';
+import { escapeRegex } from '../../shared/utils/helpers.js';
 import {
   CreateInventoryItemInput,
   UpdateInventoryItemInput,
@@ -174,9 +175,10 @@ export class InventoryService {
     }
 
     if (search) {
+      const escapedSearch = escapeRegex(search);
       where.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
+        { name: { $regex: escapedSearch, $options: 'i' } },
+        { description: { $regex: escapedSearch, $options: 'i' } },
       ];
     }
 
@@ -207,9 +209,10 @@ export class InventoryService {
     }
 
     if (search) {
+      const escapedSearch = escapeRegex(search);
       where.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
+        { name: { $regex: escapedSearch, $options: 'i' } },
+        { description: { $regex: escapedSearch, $options: 'i' } },
       ];
     }
 

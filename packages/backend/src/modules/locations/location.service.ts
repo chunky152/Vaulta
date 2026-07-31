@@ -4,7 +4,7 @@ import { Booking } from '../bookings/Booking.model.js';
 import mongoose from 'mongoose';
 
 import { NotFoundError, ConflictError } from '../../shared/types/index.js';
-import { generateSlug } from '../../shared/utils/helpers.js';
+import { generateSlug, escapeRegex } from '../../shared/utils/helpers.js';
 import {
   CreateLocationInput,
   UpdateLocationInput,
@@ -79,11 +79,11 @@ export class LocationService {
     const query: any = {};
 
     if (city) {
-      query.city = { $regex: city, $options: 'i' };
+      query.city = { $regex: escapeRegex(city), $options: 'i' };
     }
 
     if (country) {
-      query.country = { $regex: country, $options: 'i' };
+      query.country = { $regex: escapeRegex(country), $options: 'i' };
     }
 
     if (isActive !== undefined) {
@@ -95,10 +95,11 @@ export class LocationService {
     }
 
     if (search) {
+      const escapedSearch = escapeRegex(search);
       query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { address: { $regex: search, $options: 'i' } },
-        { city: { $regex: search, $options: 'i' } },
+        { name: { $regex: escapedSearch, $options: 'i' } },
+        { address: { $regex: escapedSearch, $options: 'i' } },
+        { city: { $regex: escapedSearch, $options: 'i' } },
       ];
     }
 

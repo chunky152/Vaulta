@@ -6,6 +6,7 @@ import { User, UserRole } from '../auth/User.model.js';
 import { StorageUnit } from '../units/StorageUnit.model.js';
 import { StorageLocation } from '../locations/StorageLocation.model.js';
 import { Transaction, TransactionType, TransactionStatus } from '../payments/Transaction.model.js';
+import { escapeRegex } from '../../shared/utils/helpers.js';
 
 // Only accept a value that belongs to the given enum's set of known values —
 // req.query/req.body values are attacker-controlled and must not flow into
@@ -18,10 +19,6 @@ function asEnumValue<T extends string>(
   return typeof value === 'string' && (Object.values(allowed) as string[]).includes(value)
     ? (value as T)
     : undefined;
-}
-
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 export class AdminController {
