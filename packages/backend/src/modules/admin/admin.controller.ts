@@ -26,6 +26,12 @@ function asEnumValue<T extends string>(
     : undefined;
 }
 
+// Only accept a literal boolean — never pass the raw user-supplied value
+// (which could be an object/array) through to a Mongo update document.
+function asBoolean(value: unknown): boolean | undefined {
+  return value === true || value === false ? value : undefined;
+}
+
 export class AdminController {
   // Get dashboard stats
   async getDashboardStats(req: AuthenticatedRequest, res: Response): Promise<void> {
@@ -254,10 +260,10 @@ export class AdminController {
       throw new ValidationError('Invalid user id');
     }
 
-    if (isActiveInput !== undefined && typeof isActiveInput !== 'boolean') {
+    const isActive = asBoolean(isActiveInput);
+    if (isActiveInput !== undefined && isActive === undefined) {
       throw new ValidationError('Invalid isActive value');
     }
-    const isActive: boolean | undefined = isActiveInput;
 
     const role = asEnumValue(roleInput, UserRole);
     if (roleInput !== undefined && role === undefined) {
@@ -270,7 +276,7 @@ export class AdminController {
       throw new AuthorizationError('Only a super admin can change user roles');
     }
 
-    const updateData: any = {};
+    const updateData: { isActive?: boolean; role?: UserRole } = {};
     if (isActive !== undefined) updateData.isActive = isActive;
     if (role !== undefined) updateData.role = role;
 
