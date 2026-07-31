@@ -5,6 +5,42 @@ import { NotificationPreference } from './NotificationPreference.model.js';
 import { Booking } from '../bookings/Booking.model.js';
 import { User } from '../auth/User.model.js';
 import { config } from '../../shared/config/index.js';
+import { UpdatePreferencesInput } from './notification.validator.js';
+
+const PREFERENCE_KEYS = [
+  'emailBooking',
+  'emailPayment',
+  'emailReminder',
+  'emailPromo',
+  'smsBooking',
+  'smsPayment',
+  'smsReminder',
+  'smsPromo',
+  'pushBooking',
+  'pushPayment',
+  'pushReminder',
+  'pushPromo',
+] as const;
+
+type PreferenceKey = (typeof PREFERENCE_KEYS)[number];
+
+// Rebuild the update document as fresh true/false literals for a fixed set
+// of known keys, rather than passing the request-derived object straight
+// into the query — the value assigned for each key is a literal gated by a
+// strict equality check, not the tainted input itself.
+function sanitizePreferences(
+  input: UpdatePreferencesInput
+): Partial<Record<PreferenceKey, boolean>> {
+  const result: Partial<Record<PreferenceKey, boolean>> = {};
+  for (const key of PREFERENCE_KEYS) {
+    if (input[key] === true) {
+      result[key] = true;
+    } else if (input[key] === false) {
+      result[key] = false;
+    }
+  }
+  return result;
+}
 
 // Notification enums
 type NotificationType = 'EMAIL' | 'SMS' | 'PUSH';
@@ -367,32 +403,24 @@ Access Code: ${(booking as any).accessCode}`;
   // Update notification preferences
   async updatePreferences(
     userId: string,
-    preferences: Partial<{
-      emailBooking: boolean;
-      emailPayment: boolean;
-      emailReminder: boolean;
-      emailPromo: boolean;
-      smsBooking: boolean;
-      smsPayment: boolean;
-      smsReminder: boolean;
-      smsPromo: boolean;
-      pushBooking: boolean;
-      pushPayment: boolean;
-      pushReminder: boolean;
-      pushPromo: boolean;
-    }>
+    preferences: UpdatePreferencesInput
   ): Promise<void> {
+    const sanitized = sanitizePreferences(preferences);
     const existing = await NotificationPreference.findOne({ userId });
 
     if (existing) {
+      // $set applies a partial update to only the whitelisted fields —
+      // an unkeyed update document here would replace the whole
+      // matched document, letting extra fields (e.g. userId) reassign
+      // which user the preferences document belongs to.
       await NotificationPreference.updateOne(
         { userId },
-        preferences
+        { $set: sanitized }
       );
     } else {
       await NotificationPreference.create({
         userId,
-        ...preferences,
+        ...sanitized,
       });
     }
   }
