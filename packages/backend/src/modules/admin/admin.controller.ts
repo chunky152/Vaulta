@@ -1,6 +1,11 @@
 import { Response } from 'express';
 import mongoose from 'mongoose';
-import { AuthenticatedRequest, ApiResponse } from '../../shared/types/index.js';
+import {
+  AuthenticatedRequest,
+  ApiResponse,
+  AuthorizationError,
+  ValidationError,
+} from '../../shared/types/index.js';
 import { Booking, BookingStatus } from '../bookings/Booking.model.js';
 import { User, UserRole } from '../auth/User.model.js';
 import { StorageUnit } from '../units/StorageUnit.model.js';
@@ -243,16 +248,31 @@ export class AdminController {
   // Update user status (admin)
   async updateUserStatus(req: AuthenticatedRequest, res: Response): Promise<void> {
     const { id } = req.params;
-    const { isActive, role } = req.body;
+    const { isActive, role: roleInput } = req.body;
+
+    if (typeof id !== 'string' || !mongoose.Types.ObjectId.isValid(id)) {
+      throw new ValidationError('Invalid user id');
+    }
+
+    const role = asEnumValue(roleInput, UserRole);
+    if (roleInput !== undefined && role === undefined) {
+      throw new ValidationError('Invalid role');
+    }
+
+    // Only a super admin can change roles — an ordinary admin could
+    // otherwise grant themselves or anyone else SUPER_ADMIN.
+    if (role !== undefined && req.user?.role !== UserRole.SUPER_ADMIN) {
+      throw new AuthorizationError('Only a super admin can change user roles');
+    }
 
     const updateData: any = {};
     if (isActive !== undefined) updateData.isActive = isActive;
-    if (role) updateData.role = role;
+    if (role !== undefined) updateData.role = role;
 
     const user = await User.findByIdAndUpdate(
       id,
       updateData,
-      { new: true }
+      { new: true, runValidators: true }
     ).select('id email firstName lastName role isActive');
 
     const response: ApiResponse = {
