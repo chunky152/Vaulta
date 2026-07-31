@@ -78,6 +78,12 @@ export function determinePricingType(
   }
 }
 
+// Escape regex metacharacters in user-controlled input before using it in a
+// Mongo $regex filter, to prevent ReDoS and unintended pattern matching.
+export function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // Sanitize user object for response (remove sensitive fields)
 export function sanitizeUser<T extends object>(
   user: T

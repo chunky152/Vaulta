@@ -1,6 +1,7 @@
 import { StorageLocation } from './StorageLocation.model.js';
 import { StorageUnit } from '../units/StorageUnit.model.js';
 import { LocationWithDistance } from '../../shared/types/index.js';
+import { escapeRegex } from '../../shared/utils/helpers.js';
 
 
 interface NearbySearchOptions {
@@ -159,16 +160,17 @@ export class GeolocationService {
     page: number = 1,
     limit: number = 20
   ): Promise<{ locations: any[]; total: number }> {
+    const cityFilter = { $regex: escapeRegex(city), $options: 'i' };
     const [locations, total] = await Promise.all([
       StorageLocation.find({
-        city: { $regex: city, $options: 'i' },
+        city: cityFilter,
         isActive: true,
       })
         .sort({ rating: -1 })
         .skip((page - 1) * limit)
         .limit(limit),
       StorageLocation.countDocuments({
-        city: { $regex: city, $options: 'i' },
+        city: cityFilter,
         isActive: true,
       }),
     ]);
