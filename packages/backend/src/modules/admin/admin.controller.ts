@@ -248,11 +248,16 @@ export class AdminController {
   // Update user status (admin)
   async updateUserStatus(req: AuthenticatedRequest, res: Response): Promise<void> {
     const { id } = req.params;
-    const { isActive, role: roleInput } = req.body;
+    const { isActive: isActiveInput, role: roleInput } = req.body;
 
     if (typeof id !== 'string' || !mongoose.Types.ObjectId.isValid(id)) {
       throw new ValidationError('Invalid user id');
     }
+
+    if (isActiveInput !== undefined && typeof isActiveInput !== 'boolean') {
+      throw new ValidationError('Invalid isActive value');
+    }
+    const isActive: boolean | undefined = isActiveInput;
 
     const role = asEnumValue(roleInput, UserRole);
     if (roleInput !== undefined && role === undefined) {
