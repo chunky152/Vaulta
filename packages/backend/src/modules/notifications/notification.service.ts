@@ -7,6 +7,41 @@ import { User } from '../auth/User.model.js';
 import { config } from '../../shared/config/index.js';
 import { UpdatePreferencesInput } from './notification.validator.js';
 
+const PREFERENCE_KEYS = [
+  'emailBooking',
+  'emailPayment',
+  'emailReminder',
+  'emailPromo',
+  'smsBooking',
+  'smsPayment',
+  'smsReminder',
+  'smsPromo',
+  'pushBooking',
+  'pushPayment',
+  'pushReminder',
+  'pushPromo',
+] as const;
+
+type PreferenceKey = (typeof PREFERENCE_KEYS)[number];
+
+// Rebuild the update document as fresh true/false literals for a fixed set
+// of known keys, rather than passing the request-derived object straight
+// into the query — the value assigned for each key is a literal gated by a
+// strict equality check, not the tainted input itself.
+function sanitizePreferences(
+  input: UpdatePreferencesInput
+): Partial<Record<PreferenceKey, boolean>> {
+  const result: Partial<Record<PreferenceKey, boolean>> = {};
+  for (const key of PREFERENCE_KEYS) {
+    if (input[key] === true) {
+      result[key] = true;
+    } else if (input[key] === false) {
+      result[key] = false;
+    }
+  }
+  return result;
+}
+
 // Notification enums
 type NotificationType = 'EMAIL' | 'SMS' | 'PUSH';
 type NotificationCategory = 'BOOKING' | 'PAYMENT' | 'REMINDER' | 'PROMO' | 'SYSTEM';
@@ -370,6 +405,7 @@ Access Code: ${(booking as any).accessCode}`;
     userId: string,
     preferences: UpdatePreferencesInput
   ): Promise<void> {
+    const sanitized = sanitizePreferences(preferences);
     const existing = await NotificationPreference.findOne({ userId });
 
     if (existing) {
@@ -379,12 +415,12 @@ Access Code: ${(booking as any).accessCode}`;
       // which user the preferences document belongs to.
       await NotificationPreference.updateOne(
         { userId },
-        { $set: preferences }
+        { $set: sanitized }
       );
     } else {
       await NotificationPreference.create({
         userId,
-        ...preferences,
+        ...sanitized,
       });
     }
   }
