@@ -6,6 +6,11 @@ A modern full-stack platform for location-based storage unit discovery, booking,
 **API:** [https://vaulta-api-2lak.onrender.com/api/v1/health](https://vaulta-api-2lak.onrender.com/api/v1/health)
 **Architecture map:** [foglamp.dev/scan/vaulta-u7csyf](https://foglamp.dev/scan/vaulta-u7csyf) — a visual map of how the system works (services, integrations, data flow)
 
+<div align="center">
+  <img src="./qr-code-live-site.png" alt="Vaulta live app QR code" width="220" />
+  <p><strong>Scan to open the live site</strong></p>
+</div>
+
 > The API runs on Render's free tier, which spins down when idle — the first request after a quiet period can take 30–60 seconds.
 
 ## Tech Stack
